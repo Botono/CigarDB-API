@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" name="Default" comment="updating .gitignore">
+    <list default="true" id="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.gitignore" afterPath="$PROJECT_DIR$/.gitignore" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
     <ignored path="CigarDB-API.iws" />
     <ignored path=".idea/workspace.xml" />
-    <file path="/Dummy.txt" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1365665373213" ignored="false" />
-    <file path="/.gitignore" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1365665418769" ignored="false" />
+    <file path="/Dummy.txt" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1365665425638" ignored="false" />
+    <file path="/.gitignore" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1365665444594" ignored="false" />
     <file path="/server.js" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1365664388954" ignored="false" />
     <file path="/brands.js" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1365661535470" ignored="false" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -188,7 +188,11 @@
       <created>1365665368354</created>
       <updated>1365665368354</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="updating .gitignore">
+      <created>1365665427193</created>
+      <updated>1365665427193</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -326,7 +330,7 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/.gitignore">
       <provider selected="true" editor-type-id="text-editor">
-        <state line="20" column="7" selection-start="209" selection-end="209" vertical-scroll-proportion="0.3715847">
+        <state line="16" column="12" selection-start="179" selection-end="179" vertical-scroll-proportion="0.29726776">
           <folding />
         </state>
       </provider>
