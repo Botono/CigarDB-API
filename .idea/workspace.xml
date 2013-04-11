@@ -7,7 +7,7 @@
     </list>
     <ignored path="CigarDB-API.iws" />
     <ignored path=".idea/workspace.xml" />
-    <file path="/Dummy.txt" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1365665425638" ignored="false" />
+    <file path="/Dummy.txt" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1365665452475" ignored="false" />
     <file path="/.gitignore" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1365665444594" ignored="false" />
     <file path="/server.js" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1365664388954" ignored="false" />
     <file path="/brands.js" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1365661535470" ignored="false" />
@@ -192,7 +192,11 @@
       <created>1365665427193</created>
       <updated>1365665427193</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="updating .gitignore">
+      <created>1365665453963</created>
+      <updated>1365665453963</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -330,7 +334,7 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/.gitignore">
       <provider selected="true" editor-type-id="text-editor">
-        <state line="16" column="12" selection-start="179" selection-end="179" vertical-scroll-proportion="0.29726776">
+        <state line="16" column="17" selection-start="179" selection-end="179" vertical-scroll-proportion="0.29726776">
           <folding />
         </state>
       </provider>
