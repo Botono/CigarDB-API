@@ -1,7 +1,9 @@
 var restify = require('restify'),
+    url = require('url'),
     mongoose = require('mongoose'),
     config = require('./config'),
     db = mongoose.connect(config.creds.mongoose_auth),
+    tmp_brands = require('./tmp_data/brands.js'),
     Schema = mongoose.Schema;
 
 var BrandSchema = new Schema({
@@ -50,15 +52,50 @@ var APIKey = mongoose.model('APIKey', APIKeySchema);
 
 
 function getBrands(req, res, next) {
-     Brand.find().sort('name').exec(function (data) {
-         res.send(data);
-     })
+    // Return a list of all brands, paginated
+    // Name parameter must be passed
+    if (!req.params.name) {
+        return next(new restify.MissingParameterError("You must supply at least a name!"));
+    }
+    var nameRegEx = new RegExp(req.params.name, 'i');
+    Brand.find({name: nameRegEx },'name cigardb_status cigardb_updated').sort('name').exec(function(err, docs) {
+         console.log(err);
+         console.log(docs);
+         res.send(docs);
+         return next();
+
+    });
 }
 
 var server = restify.createServer({
     name: 'CigarDB API'
 })
 
-server.listen(8080);
+
+function populateDB() {
+    // brands
+    console.log('Checking for data');
+    Brand.find().exec(function(err, docs) {
+        if (docs.length == 0) {
+            console.log('No brands found, populating Brands collection.');
+            console.log(tmp_brands.length);
+            for (var i=0;tmp_brands[i];i++) {
+                var new_brand = new Brand();
+                new_brand.name = tmp_brands[i];
+                new_brand.cigardb_status = 'approved';
+                new_brand.cigardb_updated = new Date();
+                new_brand.save();
+            }
+        }
+    });
+}
+
 // Set up our routes and start the server
+server.use(restify.queryParser());
+server.use(restify.bodyParser());
+// Brand Search: /brands?api_key=1234&name=Arturo
 server.get('/brands', getBrands);
+
+
+populateDB();
+server.listen(8080);
