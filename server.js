@@ -3,76 +3,22 @@ var restify = require('restify'),
     mongoose = require('mongoose'),
     config = require('./config'),
     db = mongoose.connect(config.creds.mongoose_auth),
+    schemas = require('./schema.js'),
     tmp_brands = require('./tmp_data/brands.js'),
-    Schema = mongoose.Schema;
-
-var BrandSchema = new Schema({
-    name: String,
-    location: String,
-    founding_date: { type: Date, default: Date.now },
-    logo: String, // Amazon S3?
-    status: String,
-    updated: Date
-});
-var Brand = mongoose.model('Brand', BrandSchema);
-
-var CigarSchema = new Schema({
-    brand: String, // Not an ID. Normalized
-    name: String,
-    length: Number,
-    ring_gauge: Number,
-    vitola: String,
-    color: String,
-    country: String,
-    wrappers: [String],
-    binders: [String],
-    fillers: [String],
-    year_introduced: Date,
-    updated: { type: Date, default: Date.now },
-    status: String
-});
-var Cigar = mongoose.model('Cigar', CigarSchema);
-
-var UserSchema = new Schema({
-    username: String,
-    password: String, // hashed and whatnot
-    email: String,
-    github_access_token: String,
-    date_joined: { type: Date, default: Date.now }
-});
-var User = mongoose.model('User', UserSchema);
-
-var APIKeySchema = new Schema({
-    api_key: String,
-    access_level: Number,
-    user_id: Schema.Types.ObjectId,
-    date_created: { type: Date, default: Date.now }
-});
-APIKeySchema.index({api_key: 1, user_id: 1});
-var APIKey = mongoose.model('APIKey', APIKeySchema);
-
-// TODO figure out update/delete queue format
-var UpdateRequestSchema = new Schema({
-    type: String,
-    target_type: String,
-    date_submitted: { type: Date, default: Date.now },
-    data: Schema.Types.Mixed
-});
-var UpdateRequest = mongoose.model('UpdateRequest', UpdateRequestSchema);
-
-var DeleteRequestSchema = new Schema({
-    type: String,
-    date_submitted: { type: Date, default: Date.now },
-    data: Schema.Types.Mixed
-});
-var DeleteRequest = mongoose.model('DeleteRequest', DeleteRequestSchema);
+    Schema = mongoose.Schema,
+    Brand = mongoose.model('Brand', schemas.BrandSchema),
+    Cigar = mongoose.model('Cigar', schemas.CigarSchema),
+    User = mongoose.model('User', schemas.UserSchema),
+    APIKey = mongoose.model('APIKey', schemas.APIKeySchema),
+    UpdateRequest = mongoose.model('UpdateRequest', schemas.UpdateRequestSchema),
+    DeleteRequest = mongoose.model('DeleteRequest', schemas.DeleteRequestSchema);
 
 function getBrands(req, res, next) {
     // Return a list of all brands, paginated
     // Name parameter must be passed if not premium
 
     if (!req.params.name && req.access_level < 1) {
-        return next(new restify.MissingParameterError("You must supply at least a name!"));
+        return next(new restify.MissingParameterError("You must supply at least a name."));
     }
     var limit = (req.access_level > 0) ? 9999 : 50,
         nameRegEx = new RegExp(req.params.name, 'i'),
@@ -96,7 +42,7 @@ function getBrand(req, res, next) {
     // Return a single Brand
 
     if (!req.params.id) {
-        return next(new restify.MissingParameterError("You must supply an ID!"));
+        return next(new restify.MissingParameterError("You must supply an ID."));
     }
 
     Brand.findOne({_id: req.params.id, status: 'approved'},'name location founding_date status updated').exec(function(err, docs) {
@@ -116,7 +62,7 @@ function createBrand(req,res,next) {
     // Create a new Brand entry
     // Minimum required field is name
     if (!req.params.name) {
-        return next(restify.InvalidContentError('You must supply at least a name!'));
+        return next(restify.MissingParameterError('You must supply at least a name.'));
     }
     console.log('Creating a new brand');
     // Let's fill in the values manually
@@ -146,12 +92,13 @@ function createBrand(req,res,next) {
 
 }
 
+// TODO fine tune update process. Scub incoming values
 function updateBrand(req,res,next) {
     if (!req.params.id) {
-        return next(restify.InvalidContentError('You must supply an ID!'));
+        return next(restify.MissingParameterError('You must supply an ID.'));
     }
-    update_req = new UpdateRequest();
-    update_req.type = 'Brand';
+    var update_req = new UpdateRequest();
+    update_req.type = 'brand';
     update_req.data = req.params;
     update_req.save(function (err,update_req) {
         if (err) {
@@ -159,11 +106,32 @@ function updateBrand(req,res,next) {
         } else {
             res.status(202);
             var data = [{"message": "The update has been submitted and is awaiting approval."}];
-            res.send(data);
-            console.log(update_req);
+            res.send(data);;
             return next();
         }
     })
+}
+
+function removeBrand(req,res,next) {
+    if (!req.params.id) {
+        return next(restify.MissingParameterError('You must supply an ID.'));
+    } else if (!req.params.reason) {
+        return next(restify.MissingParameterError('You must provide a reason.'))
+    }
+    var delete_req = new DeleteRequest();
+    delete_req.target_id = req.params.id;
+    delete_req.reason = req.params.reason;
+    delete_req.type = 'brand';
+    delete_req.save(function (err,delete_req) {
+        if (err) {
+            return next(err);
+        } else {
+            res.status(202);
+            var data = [{"message": "The delete request has been submitted and is awaiting approval."}];
+            res.send(data);
+            return next();
+        }
+    });
 }
 
 var server = restify.createServer({
@@ -232,6 +200,8 @@ function populateDB() {
     });
 }
 
+
+
 // Set up our routes and start the server
 server.use(restify.queryParser());
 server.use(restify.bodyParser());
@@ -260,9 +230,8 @@ server.get('/brands', getBrands);
 server.get('/brands/:id', getBrand);
 server.post('/brands', createBrand);
 server.put('/brands/:id', updateBrand);
-/*
 server.delete('/brands/:id', removeBrand);
-
+/*
 // Cigar routes
 server.get('/cigars', getCigars);
 server.get('/cigars/:id', getCigar);
