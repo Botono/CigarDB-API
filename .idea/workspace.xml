@@ -2,20 +2,12 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" name="Default" comment="">
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/tmp_data/brands.js" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/tmp_data/cigar_domain_values.js" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/tmp_data/cigars2.js" />
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/package.json" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.gitignore" afterPath="$PROJECT_DIR$/.gitignore" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/config.js" afterPath="$PROJECT_DIR$/config.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/misc.xml" afterPath="$PROJECT_DIR$/.idea/misc.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/schema.js" afterPath="$PROJECT_DIR$/schema.js" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/server.js" afterPath="$PROJECT_DIR$/server.js" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/data_import.js" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
     <ignored path="CigarDB-API.iws" />
     <ignored path=".idea/workspace.xml" />
-    <file path="/Dummy.txt" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1366224636464" ignored="false" />
+    <file path="/Dummy.txt" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1366238927563" ignored="false" />
     <file path="/.gitignore" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1365665444594" ignored="false" />
     <file path="/server.js" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1366174205503" ignored="false" />
     <file path="/brands.js" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1365661535470" ignored="false" />
@@ -23,8 +15,9 @@
     <file path="/package.json" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1366168834532" ignored="false" />
     <file path="/a.html" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1366168445893" ignored="false" />
     <file path="/a.xml" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1366168448656" ignored="false" />
-    <file path="/a.js" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1366171300518" ignored="false" />
+    <file path="/a.js" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1366240837017" ignored="false" />
     <file path="/a.coffee" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1366168562570" ignored="false" />
+    <file path="/data_import.js" changelist="fbfd4e3b-88cd-4c76-bb28-11aa8f2939bf" time="1366241290955" ignored="false" />
     <option name="TRACKING_ENABLED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -47,25 +40,16 @@
       <file leaf-file-name="server.js" pinned="false" current="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/server.js">
           <provider selected="true" editor-type-id="text-editor">
-            <state line="241" column="55" selection-start="8004" selection-end="8004" vertical-scroll-proportion="0.0">
+            <state line="18" column="80" selection-start="0" selection-end="865" vertical-scroll-proportion="0.0">
               <folding />
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name=".gitignore" pinned="false" current="true" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/.gitignore">
+      <file leaf-file-name="data_import.js" pinned="false" current="true" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/data_import.js">
           <provider selected="true" editor-type-id="text-editor">
-            <state line="0" column="0" selection-start="0" selection-end="0" vertical-scroll-proportion="0.0">
-              <folding />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="cigar_domain_values.js" pinned="false" current="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/tmp_data/cigar_domain_values.js">
-          <provider selected="true" editor-type-id="text-editor">
-            <state line="4" column="287" selection-start="1908" selection-end="1908" vertical-scroll-proportion="0.0">
+            <state line="14" column="93" selection-start="640" selection-end="640" vertical-scroll-proportion="0.28649387">
               <folding />
             </state>
           </provider>
@@ -75,17 +59,6 @@
         <entry file="file://$PROJECT_DIR$/schema.js">
           <provider selected="true" editor-type-id="text-editor">
             <state line="42" column="21" selection-start="814" selection-end="975" vertical-scroll-proportion="0.0">
-              <folding>
-                <marker date="1366169884134" expanded="true" signature="1903:2147" placeholder="{...}" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="config.js" pinned="false" current="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/config.js">
-          <provider selected="true" editor-type-id="text-editor">
-            <state line="4" column="1" selection-start="229" selection-end="229" vertical-scroll-proportion="0.0">
               <folding />
             </state>
           </provider>
@@ -117,14 +90,15 @@
         <option value="$PROJECT_DIR$/tmp_data/cigar_domain_values.js" />
         <option value="$PROJECT_DIR$/server.js" />
         <option value="$PROJECT_DIR$/.gitignore" />
+        <option value="$PROJECT_DIR$/data_import.js" />
       </list>
     </option>
   </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="-8" />
-    <option name="y" value="-8" />
-    <option name="width" value="1040" />
-    <option name="height" value="784" />
+    <option name="x" value="64" />
+    <option name="y" value="-4" />
+    <option name="width" value="1377" />
+    <option name="height" value="905" />
   </component>
   <component name="ProjectLevelVcsManager" settingsEditedManually="false">
     <OptionsSetting value="true" id="Add" />
@@ -210,17 +184,6 @@
     <property name="FullScreen" value="false" />
     <property name="options.splitter.details.proportions" value="0.2" />
     <property name="options.searchVisible" value="true" />
-  </component>
-  <component name="PublishConfig">
-    <servers>
-      <server id="336190d5-40b0-4ca9-9514-feca16a68be3">
-        <serverdata>
-          <mappings>
-            <mapping local="$PROJECT_DIR$" />
-          </mappings>
-        </serverdata>
-      </server>
-    </servers>
   </component>
   <component name="RunManager">
     <configuration default="true" type="DartUnitRunConfigurationType" factoryName="DartUnit">
@@ -309,13 +272,13 @@
     </todo-panel>
   </component>
   <component name="ToolWindowManager">
-    <frame x="-8" y="-8" width="1040" height="784" extended-state="6" />
-    <editor active="false" />
+    <frame x="64" y="-4" width="1377" height="905" extended-state="6" />
+    <editor active="true" />
     <layout>
       <window_info id="Changes" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32943678" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.24986821" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
-      <window_info id="Project" active="true" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.14485514" sideWeight="0.6705632" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.10872781" sideWeight="0.6705632" order="0" side_tool="false" content_ui="combo" />
       <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.4" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.32999474" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
@@ -396,11 +359,6 @@
     <breakpoint-manager />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/.gitignore">
-      <provider selected="true" editor-type-id="text-editor">
-        <state line="16" column="17" selection-start="179" selection-end="179" vertical-scroll-proportion="0.0" />
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/server.js">
       <provider selected="true" editor-type-id="text-editor">
         <state line="93" column="31" selection-start="2582" selection-end="2582" vertical-scroll-proportion="0.0">
@@ -449,26 +407,10 @@
         <state line="0" column="17" selection-start="17" selection-end="17" vertical-scroll-proportion="0.0" />
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/config.js">
-      <provider selected="true" editor-type-id="text-editor">
-        <state line="4" column="1" selection-start="229" selection-end="229" vertical-scroll-proportion="0.0">
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/package.json">
       <provider selected="true" editor-type-id="text-editor">
         <state line="10" column="29" selection-start="254" selection-end="254" vertical-scroll-proportion="0.1912261">
           <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/schema.js">
-      <provider selected="true" editor-type-id="text-editor">
-        <state line="42" column="21" selection-start="814" selection-end="975" vertical-scroll-proportion="0.0">
-          <folding>
-            <marker date="1366169884134" expanded="true" signature="1903:2147" placeholder="{...}" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -479,21 +421,38 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/tmp_data/cigar_domain_values.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state line="4" column="287" selection-start="1908" selection-end="1908" vertical-scroll-proportion="0.0">
+        <state line="4" column="287" selection-start="1908" selection-end="1908" vertical-scroll-proportion="0.0" />
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/.gitignore">
+      <provider selected="true" editor-type-id="text-editor">
+        <state line="0" column="0" selection-start="0" selection-end="0" vertical-scroll-proportion="0.0">
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/config.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state line="4" column="1" selection-start="229" selection-end="229" vertical-scroll-proportion="0.08185539" />
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/schema.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state line="42" column="21" selection-start="814" selection-end="975" vertical-scroll-proportion="0.0">
           <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/server.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state line="241" column="55" selection-start="8004" selection-end="8004" vertical-scroll-proportion="0.0">
+        <state line="18" column="80" selection-start="0" selection-end="865" vertical-scroll-proportion="0.0">
           <folding />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/.gitignore">
+    <entry file="file://$PROJECT_DIR$/data_import.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state line="0" column="0" selection-start="0" selection-end="0" vertical-scroll-proportion="0.0">
+        <state line="14" column="93" selection-start="640" selection-end="640" vertical-scroll-proportion="0.28649387">
           <folding />
         </state>
       </provider>
