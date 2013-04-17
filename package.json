@@ -1,0 +1,22 @@
+{
+  "name": "cigar-db",
+  "version": "0.1.0",
+  "author": "Aaron Murray <aaron@aaron-murray.net>",
+  "description": "An API for cigars.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Botono/CigarDB-API.git"
+  },
+  "dependencies": {
+    "mongoose": "3.6.x",
+    "node-uuid": "1.4.x",
+    "restify": "2.3.x",
+    "url": "0.7.x"
+  },
+  "engines": {
+    "node": ">=0.10.3"
+  }
+}
