@@ -36,7 +36,8 @@ function clean_domain_values(raw_data, valid_values) {
   return cleaned_values;
 }
 
-console.log('CHECKING DATA');
+console.log('LOADING DATA');
+var total_cigars = 0;
 for (var i=1;i<=4;i++) {
   for (var j=0;tmp_cigars[i][j];j++) {
     var curr_cigar = tmp_cigars[i][j];
@@ -46,7 +47,7 @@ for (var i=1;i<=4;i++) {
     }
     if (curr_cigar['filler']) {
       curr_cigar.filler = curr_cigar.filler.split(',');
-      curr_cigar.filler = clean_domain_values(curr_cigar.filler, tmp_domains.binders);
+      curr_cigar.filler = clean_domain_values(curr_cigar.filler, tmp_domains.fillers);
     }
     if (curr_cigar['wrapper']) {
       curr_cigar.wrapper = curr_cigar.wrapper.split(',');
@@ -64,6 +65,14 @@ for (var i=1;i<=4;i++) {
     new_cigar.country = curr_cigar.country_manufactured;
     new_cigar.strength = curr_cigar.strength;
     new_cigar.vitola = curr_cigar.shape;
-    new_cigar.save();
+    new_cigar.save(function (err, product) {
+      if (err) {
+        console.log('ERROR saving cigar: ' + JSON.stringify(new_cigar));
+      } else {
+        console.log('Saved cigar: ' + product.name);
+        total_cigars++;
+      }
+
+    });
   }
 }
