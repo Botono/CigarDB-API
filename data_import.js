@@ -55,6 +55,15 @@ for (var i=1;i<=4;i++) {
     var new_cigar = new Cigar();
     new_cigar.name = curr_cigar.cigar_name;
     new_cigar.brand = curr_cigar.brand;
-
+    new_cigar.color = curr_cigar.color;
+    new_cigar.length = curr_cigar.length;
+    new_cigar.ring_gauge = curr_cigar.ring_gauge;
+    new_cigar.wrappers = curr_cigar.wrapper;
+    new_cigar.fillers = curr_cigar.filler;
+    new_cigar.binders = curr_cigar.binder;
+    new_cigar.country = curr_cigar.country_manufactured;
+    new_cigar.strength = curr_cigar.strength;
+    new_cigar.vitola = curr_cigar.shape;
+    new_cigar.save();
   }
 }
