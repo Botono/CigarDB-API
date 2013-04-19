@@ -31,7 +31,7 @@ var CigarSchema = new Schema({
   updated: { type: Date, default: Date.now },
   status: String
 });
-CigarSchema.index({brand: 1});
+CigarSchema.index({status: -1, brand: 1});
 
 var AttributeDomainSchema = new Schema({
   "binders": [String],
