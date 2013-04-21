@@ -25,8 +25,8 @@ var CigarSchema = new Schema({
     ring_gauge: Number,
     vitola: {type: String, validate: validators.vitolaValidator},
     color: {type: String, validate: validators.colorValidator},
-    country: String,
-    wrappers: [String],
+    country: {type: String, validate: validators.countryValidator},
+    wrappers: {type: [String], validate: validators.wrappersValidator}, // TODO fix this validator. not accepting value as array?
     binders: [String],
     fillers: [String],
     strength: String,

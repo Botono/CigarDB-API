@@ -15,4 +15,17 @@ validators.colorValidator = validate(
     attr_domains.color
 );
 
+validators.countryValidator = validate(
+    {message: 'Invalid value for country.'},
+    'isIn',
+    attr_domains.country
+);
+
+validators.wrappersValidator = validate(
+    {message: 'Invalid value for wrappers.',
+        passIfEmpty: true},
+    'isIn',
+    attr_domains.wrappers
+);
+
 module.exports = validators;

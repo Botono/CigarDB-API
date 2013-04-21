@@ -314,14 +314,7 @@ function createCigar(req, res, next) {
      } */
     for (param in req.params) {
         // Only accept parameters that are in the list of fields for cigars (set in validation .use() below)
-        if (req.cigar_fields.indexOf(param) != -1) {
-            console.log(param + ' is a cigar field!');
-            cigar[param] = req.params[param];
-        } else if (req.system_fields.indexOf(param) == -1) {
-            console.log(param + ' not a cigar or a system field!!!!!');
-            // If the field is not a cigar field and not a system field, do not accept the request.
-            return next(new restify.InvalidArgumentError('One of the fields you submitted (' + param + ') is not valid. Please resubmit with only valid fields. If you feel this field should be added, please contact the administrators.'));
-        }
+        cigar[param] = req.params[param];
     }
 
     // Let's make sure the brand they specified already exists. createCigar() is no place to createBrand()
