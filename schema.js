@@ -1,6 +1,8 @@
 var
     mongoose = require('mongoose'),
-    Schema = mongoose.Schema
+    Schema = mongoose.Schema,
+    validators = require('./validators.js');
+
 
 var BrandSchema = new Schema({
     name: String,
@@ -15,13 +17,14 @@ var BrandSchema = new Schema({
 BrandSchema.index({location: "2d"});
 BrandSchema.index({name: 1});
 
+// TODO test validation of array fields like wrappers
 var CigarSchema = new Schema({
     brand: String, // Not an ID. Normalized
     name: String,
     length: Number,
     ring_gauge: Number,
-    vitola: String,
-    color: String,
+    vitola: {type: String, validate: validators.vitolaValidator},
+    color: {type: String, validate: validators.colorValidator},
     country: String,
     wrappers: [String],
     binders: [String],
@@ -35,12 +38,12 @@ CigarSchema.index({_id: 1, status: 1, brand: 1, name: 1});
 
 var AttributeDomainSchema = new Schema({
     "binders": [String],
-    "colors": [String],
-    "countries": [String],
+    "color": [String],
+    "country": [String],
     "fillers": [String],
-    "strengths": [String],
+    "strength": [String],
     "wrappers": [String],
-    "vitolas": [String]
+    "vitola": [String]
 });
 
 var UserSchema = new Schema({

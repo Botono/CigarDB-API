@@ -16,7 +16,8 @@
         "restify": "2.3.x",
         "url": "0.7.x",
         "validator": "1.1.x",
-        "restify-validator": "0.3.x"
+        "restify-validator": "0.3.x",
+        "mongoose-validator": "0.2.x"
     },
     "engines": {
         "node": ">=0.10.3"

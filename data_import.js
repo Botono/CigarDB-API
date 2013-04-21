@@ -2,8 +2,8 @@ var
     url = require('url'),
     mongoose = require('mongoose'),
     Schema = mongoose.Schema,
-    config = require('./config'),
-    db = mongoose.connect(config.creds.mongoose_auth),
+    config = require('./config.js'),
+//db = mongoose.connect(config.creds.mongoose_auth),
     schemas = require('./schema.js'),
     tmp_brands = require('./tmp_data/brands.js'),
     tmp_domains = require('./tmp_data/cigar_domain_values.js'),
@@ -80,12 +80,12 @@ function populateDB() {
             console.log('No attribute domains found, populating AttributeDomains collection.');
             var new_dom = new AttributeDomain();
             new_dom.binders = tmp_domains.binders;
-            new_dom.colors = tmp_domains.colors;
-            new_dom.countries = tmp_domains.countries;
+            new_dom.color = tmp_domains.color;
+            new_dom.country = tmp_domains.country;
             new_dom.fillers = tmp_domains.fillers;
-            new_dom.strengths = tmp_domains.strengths;
+            new_dom.strength = tmp_domains.strength;
             new_dom.wrappers = tmp_domains.wrappers;
-            new_dom.vitolas = tmp_domains.vitolas;
+            new_dom.vitola = tmp_domains.vitola;
             new_dom.save();
         }
     });
@@ -156,5 +156,5 @@ function clean_domain_values(raw_data, valid_values) {
     return cleaned_values;
 }
 
-module.exports = populateDB();
+module.exports = populateDB;
 

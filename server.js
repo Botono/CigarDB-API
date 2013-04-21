@@ -4,10 +4,10 @@ var
     mongoose = require('mongoose'),
     restifyValidator = require('restify-validator'),
     Schema = mongoose.Schema,
-    config = require('./config'),
+    config = require('./config.js'),
     db = mongoose.connect(config.creds.mongoose_auth),
     schemas = require('./schema.js'),
-//populateDB = require('./data_import.js')
+//populateDB = require('./data_import.js'),
     Brand = mongoose.model('Brand', schemas.BrandSchema),
     AttributeDomain = mongoose.model('AttributeDomain', schemas.AttributeDomainSchema),
     Cigar = mongoose.model('Cigar', schemas.CigarSchema),
@@ -257,16 +257,16 @@ function getCigar(req, res, next) {
         }
     });
 }
-// TODO handle querying status
+// TODO handle querying status (e.g.: admins looking for documents in the queue)
 
 function createCigar(req, res, next) {
     // Create a new Cigar entry (aka: Where the Magic Happens)
     // Minimum required fields are brand and name
     var
         required_fields = ['brand', 'name'],// I know it's not used.
-        list_fields = ['wrappers','binders','fillers'],
+        list_fields = ['wrappers', 'binders', 'fillers'],
         fields_to_validate = [],
-        return_obj = {data: {}},
+        return_obj = {data: {}, message: ''},
         tmp_list,
         cigar = new Cigar();
 
@@ -278,35 +278,49 @@ function createCigar(req, res, next) {
     for (field in req.attribute_domains) {
         fields_to_validate.push(field);
     }
-
+    console.log(JSON.stringify(fields_to_validate));
+    // TODO refactor this mess in light of new validation scheme
+    /*for (param in req.params) {
+     // Only accept parameters that are in the list of fields for cigars (set in validation .use() below)
+     if (req.cigar_fields.indexOf(param) != -1) {
+     console.log(param + ' is a cigar field!');
+     if (fields_to_validate.indexOf(param) != -1) {
+     // Compare the values supplied against our list of valid values.
+     if (list_fields.indexOf(param) != -1) {
+     // These are stored as lists, so we gotta make em lists.
+     tmp_list = req.params[param].split(',');
+     for (var i=0;tmp_list[i];i++) {
+     // TODO think about factoring this out.
+     if (req.attribute_domains[param].indexOf(tmp_list[i]) == -1) {
+     return next(new restify.ResourceNotFoundError("One of the values you submitted for this cigar's " +param+ " ("+tmp_list[i]+") is not in the list of allowed values. Please contact the admins to request that it be added before attempting to use it."))
+     }
+     }
+     cigar[param] = tmp_list;
+     } else {
+     if (req.attribute_domains[param].indexOf(req.params[param]) == -1) {
+     return next(new restify.ResourceNotFoundError("One of the values you submitted for this cigar's " +param+ " ("+req.params[param]+") is not in the list of allowed values. Please contact the admins to request that it be added before attempting to use it."))
+     } else {
+     cigar[param] = req.params[param];
+     }
+     }
+     } else {
+     cigar[param] = req.params[param];
+     }
+     } else if (req.system_fields.indexOf(param) == -1) {
+     console.log(param + ' not a cigar or a system field!!!!!');
+     // If the field is not a cigar field and not a system field, do not accept the request.
+     return next(new restify.InvalidArgumentError('One of the fields you submitted ('+param+') is not valid. Please resubmit with only valid fields. If you feel this field should be added, please contact the administrators.'));
+     }
+     } */
     for (param in req.params) {
         // Only accept parameters that are in the list of fields for cigars (set in validation .use() below)
         if (req.cigar_fields.indexOf(param) != -1) {
-            if (fields_to_validate.indexOf(param) != -1) {
-                // Compare the values supplied against our list of valid values.
-                if (list_fields.indexOf(param) != -1) {
-                    // These are stored as lists, so we gotta make em lists.
-                    tmp_list = req.params[param].split(',');
-                    for (var i=0;tmp_list[i];i++) {
-                        // TODO think about factoring this out.
-                        if (req.attribute_domains[param].indexOf(tmp_list[i]) == -1) {
-                            return next(new restify.ResourceNotFoundError("One of the values you submitted for this cigar's " +param+ " ("+tmp_list[i]+") is not in the list of allowed values. Please contact the admins to request that it be added before attempting to use it."))
-                        }
-                    }
-                    cigar[param] = tmp_list;
-                } else {
-                    if (req.attribute_domains[param].indexOf(req.params[param]) == -1) {
-                        return next(new restify.ResourceNotFoundError("One of the values you submitted for this cigar's " +param+ " ("+req.params[param]+") is not in the list of allowed values. Please contact the admins to request that it be added before attempting to use it."))
-                    } else {
-                        cigar[param] = req.params[param];
-                    }
-                }
-            } else {
-                cigar[param] = req.params[param];
-            }
-        } else {
-            // Let's be harsh. If you pass an invalid field, we don't accept the cigar.
-            return next(new restify.InvalidArgumentError('One of the fields you submitted ('+param+') is not valid. Please resubmit with only valid fields. If you feel this field should be added, please contact the administrators.'));
+            console.log(param + ' is a cigar field!');
+            cigar[param] = req.params[param];
+        } else if (req.system_fields.indexOf(param) == -1) {
+            console.log(param + ' not a cigar or a system field!!!!!');
+            // If the field is not a cigar field and not a system field, do not accept the request.
+            return next(new restify.InvalidArgumentError('One of the fields you submitted (' + param + ') is not valid. Please resubmit with only valid fields. If you feel this field should be added, please contact the administrators.'));
         }
     }
 
@@ -334,11 +348,12 @@ function createCigar(req, res, next) {
             res.status(202);
             return_obj.message = "The cigar has been created and is awaiting approval."
             return_obj.data = {"id": cigar.id};
-            res.send(data);
+            res.send(return_obj);
             return next();
         }
     });
 }
+
 
 function updateCigar(req, res, next) {
     if (!req.params.id) {
@@ -385,10 +400,48 @@ function removeCigar(req, res, next) {
     });
 }
 
+function cigarDBFormatJSON(req, res, body) {
+    if (body instanceof Error) {
+        // snoop for RestError or HttpError, but don't rely on
+        // instanceof
+        res.statusCode = body.statusCode || 500;
+
+        if (body.name && body.name == 'ValidationError') {
+            var err_msg = '';
+            if (Object.keys(body.errors).length > 1) {
+                var fields_in_error = Object.keys(body.errors);
+                err_msg = 'The following fields failed validation: ' + fields_in_error.join(', ');
+            } else {
+                err_msg = body.errors[Object.keys(body.errors)[0]].type;
+            }
+            body = {
+                message: err_msg
+            };
+        } else if (body.body) {
+            body = body.body;
+        } else {
+            body = {
+                message: body.message
+            };
+        }
+    } else if (Buffer.isBuffer(body)) {
+        body = body.toString('base64');
+    }
+
+    var data = JSON.stringify(body);
+    res.setHeader('Content-Length', Buffer.byteLength(data));
+
+    return (data);
+}
+
 
 var server = restify.createServer({
-    name: 'CigarDB API'
-})
+    name: 'CigarDB API',
+    formatters: {
+        'application/json; q=0.9': cigarDBFormatJSON
+    }
+});
+
 
 // Set up our routes and start the server
 server.use(restify.queryParser());
@@ -400,35 +453,38 @@ server.use(function (req, res, next) {
     var
         theKey = req.params.api_key,
         cigar_fields = ['brand', 'name', 'vitola', 'color', 'fillers', 'wrappers', 'binders', 'strength', 'ring_gauge', 'length'],
-        attribute_domains = {};
+        system_fields = ['api_key'],
+        mongo_fields = ['__v', '_id'],
+        attribute_domains = {},
+        promise;
 
     if (!theKey) {
         return next(new restify.MissingParameterError("API key missing."));
     }
-    AttributeDomain.findOne().lean().exec(function (err, doc) {
-        if (err) {
-            return next(new restify.InternalError(err));
-        } else if (!doc) {
-            return next(new restify.ResourceNotFoundError("No attribute domain values found!"));
-        } else {
-            for (param in doc) {
-                attribute_domains[param] = doc[param];
+    promise = AttributeDomain.find().lean().exec();
+    promise.then(
+        function (attrdomains) {
+            for (param in attrdomains[0]) {
+                if (mongo_fields.indexOf(param) == -1) {
+                    attribute_domains[param] = attrdomains[0][param];
+                }
             }
-        }
-    });
-    App.findOne({api_key: theKey}, 'api_key access_level').exec(function (err, doc) {
-        if (err) {
-            return next(new restify.InternalError("FAIL"));
-        } else if (!doc) {
-            return next(new restify.NotAuthorizedError("API key not found!"));
-        } else {
-            req.access_level = doc.access_level;
+            return App.findOne({api_key: theKey}, 'api_key access_level').exec(); // Returns a promise
+        }).then(
+        function (apikey) {
+            if (!apikey) {
+                throw new Error("API key not found!");
+            }
+            req.access_level = apikey.access_level;
             req.cigar_fields = cigar_fields;
             req.attribute_domains = attribute_domains;
+            req.system_fields = system_fields;
             return next();
         }
-
-    });
+    ).then(null, function (err) {
+            return next(new restify.InternalError(err.message));
+        }
+    );
 });
 
 // Brand routes
