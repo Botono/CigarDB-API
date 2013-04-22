@@ -19,17 +19,17 @@ BrandSchema.index({name: 1});
 
 // TODO test validation of array fields like wrappers
 var CigarSchema = new Schema({
-    brand: String, // Not an ID. Normalized
-    name: String,
+    brand: {type: String, required: true}, // Not an ID. Normalized
+    name: {type: String, required: true},
     length: Number,
     ring_gauge: Number,
     vitola: {type: String, validate: validators.vitolaValidator},
     color: {type: String, validate: validators.colorValidator},
     country: {type: String, validate: validators.countryValidator},
-    wrappers: {type: [String], validate: validators.wrappersValidator}, // TODO fix this validator. not accepting value as array?
-    binders: [String],
-    fillers: [String],
-    strength: String,
+    wrappers: {type: [String], validate: validators.wrappersValidator},
+    binders: {type: [String], validate: validators.bindersValidator},
+    fillers: {type: [String], validate: validators.fillersValidator},
+    strength: {type: String, validate: validators.strengthValidator},
     year_introduced: Date,
     updated: { type: Date, default: Date.now },
     status: String
@@ -43,7 +43,8 @@ var AttributeDomainSchema = new Schema({
     "fillers": [String],
     "strength": [String],
     "wrappers": [String],
-    "vitola": [String]
+    "vitola": [String],
+    "updated": {type: Date, default: Date.now }
 });
 
 var UserSchema = new Schema({
@@ -55,8 +56,8 @@ var UserSchema = new Schema({
 });
 
 var AppSchema = new Schema({
-    api_key: String,
-    access_level: Number,
+    api_key: {type: String, required: true},
+    access_level: {type: Number, min: 0, max: 99},
     user_id: Schema.Types.ObjectId,
     name: String,
     description: String,

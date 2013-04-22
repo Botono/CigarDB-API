@@ -263,57 +263,15 @@ function createCigar(req, res, next) {
     // Create a new Cigar entry (aka: Where the Magic Happens)
     // Minimum required fields are brand and name
     var
-        required_fields = ['brand', 'name'],// I know it's not used.
         list_fields = ['wrappers', 'binders', 'fillers'],
-        fields_to_validate = [],
         return_obj = {data: {}, message: ''},
-        tmp_list,
         cigar = new Cigar();
 
-    if (!(req.params.brand && req.params.name) && req.access_level < 1) {
-        return next(new restify.MissingParameterError("You must supply at least the following: a brand and a name"));
-    }
-
-    // Get a list of fields for which we have known domain values so we can validate them below.
-    for (field in req.attribute_domains) {
-        fields_to_validate.push(field);
-    }
-    console.log(JSON.stringify(fields_to_validate));
-    // TODO refactor this mess in light of new validation scheme
-    /*for (param in req.params) {
-     // Only accept parameters that are in the list of fields for cigars (set in validation .use() below)
-     if (req.cigar_fields.indexOf(param) != -1) {
-     console.log(param + ' is a cigar field!');
-     if (fields_to_validate.indexOf(param) != -1) {
-     // Compare the values supplied against our list of valid values.
-     if (list_fields.indexOf(param) != -1) {
-     // These are stored as lists, so we gotta make em lists.
-     tmp_list = req.params[param].split(',');
-     for (var i=0;tmp_list[i];i++) {
-     // TODO think about factoring this out.
-     if (req.attribute_domains[param].indexOf(tmp_list[i]) == -1) {
-     return next(new restify.ResourceNotFoundError("One of the values you submitted for this cigar's " +param+ " ("+tmp_list[i]+") is not in the list of allowed values. Please contact the admins to request that it be added before attempting to use it."))
-     }
-     }
-     cigar[param] = tmp_list;
-     } else {
-     if (req.attribute_domains[param].indexOf(req.params[param]) == -1) {
-     return next(new restify.ResourceNotFoundError("One of the values you submitted for this cigar's " +param+ " ("+req.params[param]+") is not in the list of allowed values. Please contact the admins to request that it be added before attempting to use it."))
-     } else {
-     cigar[param] = req.params[param];
-     }
-     }
-     } else {
-     cigar[param] = req.params[param];
-     }
-     } else if (req.system_fields.indexOf(param) == -1) {
-     console.log(param + ' not a cigar or a system field!!!!!');
-     // If the field is not a cigar field and not a system field, do not accept the request.
-     return next(new restify.InvalidArgumentError('One of the fields you submitted ('+param+') is not valid. Please resubmit with only valid fields. If you feel this field should be added, please contact the administrators.'));
-     }
-     } */
     for (param in req.params) {
-        // Only accept parameters that are in the list of fields for cigars (set in validation .use() below)
+
+        if (list_fields.indexOf(param) != -1) {
+            req.params[param] = cleanEmptyList(req.params[param].split(','));
+        }
         cigar[param] = req.params[param];
     }
 
@@ -346,7 +304,6 @@ function createCigar(req, res, next) {
         }
     });
 }
-
 
 function updateCigar(req, res, next) {
     if (!req.params.id) {
@@ -393,6 +350,15 @@ function removeCigar(req, res, next) {
     });
 }
 
+function cleanEmptyList(val) {
+    // Feeling kind of anal about these list values.
+    if (val == ['']) {
+        return [];
+    } else {
+        return val;
+    }
+}
+
 function cigarDBFormatJSON(req, res, body) {
     if (body instanceof Error) {
         // snoop for RestError or HttpError, but don't rely on
@@ -405,7 +371,12 @@ function cigarDBFormatJSON(req, res, body) {
                 var fields_in_error = Object.keys(body.errors);
                 err_msg = 'The following fields failed validation: ' + fields_in_error.join(', ');
             } else {
-                err_msg = body.errors[Object.keys(body.errors)[0]].type;
+                if (body.errors[Object.keys(body.errors)[0]].type == 'required') {
+                    err_msg = 'The field ' + Object.keys(body.errors)[0] + ' is required.';
+                } else {
+                    err_msg = body.errors[Object.keys(body.errors)[0]].type;
+                }
+
             }
             body = {
                 message: err_msg
