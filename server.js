@@ -2,7 +2,6 @@ var
     restify = require('restify'),
     url = require('url'),
     mongoose = require('mongoose'),
-    restifyValidator = require('restify-validator'),
     Schema = mongoose.Schema,
     config = require('./config.js'),
     db = mongoose.connect(config.creds.mongoose_auth),
@@ -16,6 +15,8 @@ var
     UpdateRequest = mongoose.model('UpdateRequest', schemas.UpdateRequestSchema),
     DeleteRequest = mongoose.model('DeleteRequest', schemas.DeleteRequestSchema);
 
+
+// TODO Brand stuff needs to return custom object, not MongoDB documents
 function getBrands(req, res, next) {
     // Return a list of all brands, paginated
     // Name parameter must be passed if not premium
@@ -87,9 +88,7 @@ function createBrand(req, res, next) {
             return next(err);
         } else {
             res.status(202);
-            var data = [
-                {"data": {"id": brand.id}, "message": "The brand has been created and is awaiting approval."}
-            ];
+            var data = {"data": {"id": brand.id}, "message": "The brand has been created and is awaiting approval."};
             res.send(data);
             return next();
         }
@@ -110,11 +109,8 @@ function updateBrand(req, res, next) {
             return next(err);
         } else {
             res.status(202);
-            var data = [
-                {"message": "The update has been submitted and is awaiting approval."}
-            ];
+            var data = {"message": "The update has been submitted and is awaiting approval."};
             res.send(data);
-            ;
             return next();
         }
     })
@@ -229,7 +225,7 @@ function getCigars(req, res, next) {
 }
 
 function getCigar(req, res, next) {
-    // Return a single Brand
+    // Return a single Cigar
 
     if (!req.params.id) {
         return next(new restify.MissingParameterError("You must supply an ID."));
@@ -310,7 +306,7 @@ function updateCigar(req, res, next) {
         return next(restify.MissingParameterError('You must supply an ID.'));
     }
     var update_req = new UpdateRequest();
-    update_req.type = 'brand';
+    update_req.type = 'cigar';
     update_req.data = req.params;
     update_req.save(function (err, update_req) {
         if (err) {
@@ -359,6 +355,7 @@ function cleanEmptyList(val) {
     }
 }
 
+// My custom JSON formatter, based off default code. Adds ValidationError handling for Mongoose validation
 function cigarDBFormatJSON(req, res, body) {
     if (body instanceof Error) {
         // snoop for RestError or HttpError, but don't rely on
@@ -410,7 +407,6 @@ var server = restify.createServer({
 // Set up our routes and start the server
 server.use(restify.queryParser());
 server.use(restify.bodyParser());
-server.use(restifyValidator);
 
 server.use(function (req, res, next) {
     // Verify the API Key and pass along the access level

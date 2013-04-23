@@ -5,19 +5,19 @@ var
 
 
 var BrandSchema = new Schema({
-    name: String,
-    country: String,
-    founding_date: { type: Date, default: Date.now },
+    name: {type: String, required: true},
+    country: {type: String, validate: validators.countryValidator},
+    founding_date: { type: Date },
     logo: String, // Amazon S3?
     address: String,
     location: {lat: Number, lng: Number },
+    website: {type: String, validate: validators.URLValidator},
     status: String,
     updated: Date
 });
 BrandSchema.index({location: "2d"});
 BrandSchema.index({name: 1});
 
-// TODO test validation of array fields like wrappers
 var CigarSchema = new Schema({
     brand: {type: String, required: true}, // Not an ID. Normalized
     name: {type: String, required: true},

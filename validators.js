@@ -53,6 +53,18 @@ validators.fillersValidator = {
     msg: 'Value for fillers is invalid.'
 };
 
+validators.URLValidator = {
+    validator: function (val) {
+        try {
+            check(val).isUrl();
+        } catch (e) {
+            return false;
+        }
+        return true;
+    },
+    msg: 'URL is not valid.'
+};
+
 function checkAgainstDomainVals(the_val, truth) {
     if (util.isArray(the_val)) {
         console.log(util.inspect(the_val));
