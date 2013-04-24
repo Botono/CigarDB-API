@@ -16,27 +16,49 @@ var
     DeleteRequest = mongoose.model('DeleteRequest', schemas.DeleteRequestSchema);
 
 
-// TODO Brand stuff needs to return custom object, not MongoDB documents
 function getBrands(req, res, next) {
     // Return a list of all brands, paginated
-    // Name parameter must be passed if not premium
+    // Premium members get full list without paging
 
-    if (!req.params.name && req.access_level < 1) {
-        return next(new restify.MissingParameterError("You must supply at least a name."));
-    }
     var limit = (req.access_level > 0) ? 9999 : 50,
-        nameRegEx = new RegExp(req.params.name, 'i'),
         page = (req.params.page) ? req.params.page : 1,
-        skip = (page > 1) ? page * 50 : 0;
+        skip = (page > 1) ? page * 50 : 0,
+        return_obj = {message: '', data: []},
+        doc_count = 0;
 
-    Brand.find({name: nameRegEx, status: 'approved'}, 'name', {limit: limit, skip: skip}).sort('name').exec(function (err, docs) {
+    // Get a count of documents in this query to we can calculate number of pages later.
+    Brand.find({status: 'approved'}).count(function (err, count) {
+        if (err) {
+            return next(new restify.InternalError(err));
+        } else {
+            doc_count = count;
+        }
+    });
+
+    Brand.find({status: 'approved'}, '', {limit: limit, skip: skip}).sort('name').exec(function (err, docs) {
         // TODO admins can query non-approved
         if (err) {
-            return next(new restify.InternalError('FAIL'));
+            return next(err);
         } else if (docs.length == 0) {
             return next(new restify.ResourceNotFoundError("No records found!"));
         } else {
-            res.send(docs);
+            return_obj.numberOfPages = Math.floor(doc_count / limit);
+            return_obj.currentPage = parseInt(page);
+            for (var i = 0; docs[i]; i++) {
+                var current_doc = {};
+                for (field in docs[i]) {
+                    // Remove Mongoose version field and rename MongoDB _id field for return
+                    if (field == '__v') {
+                        continue;
+                    } else if (field == '_id') {
+                        current_doc.id = docs[i][field];
+                    } else {
+                        current_doc[field] = docs[i][field];
+                    }
+                }
+                return_obj.data.push(current_doc);
+            }
+            res.send(return_obj);
             return next();
         }
     });
@@ -45,17 +67,31 @@ function getBrands(req, res, next) {
 function getBrand(req, res, next) {
     // Return a single Brand
 
+    var
+        return_obj = {data: {}};
+
     if (!req.params.id) {
         return next(new restify.MissingParameterError("You must supply an ID."));
     }
 
-    Brand.findOne({_id: req.params.id, status: 'approved'}, 'name location founding_date status updated').exec(function (err, docs) {
+    Brand.findOne({_id: req.params.id, status: 'approved'}, 'name location founding_date website status updated').exec(function (err, doc) {
         if (err) {
             return next(new restify.InternalError('FAIL'));
-        } else if (!docs) {
+        } else if (!doc) {
             return next(new restify.ResourceNotFoundError("Brand not found!"));
         } else {
-            res.send(docs);
+            res.status(200);
+            for (field in doc) {
+                // Remove Mongoose version field and rename MongoDB _id field for return
+                if (field == '__v') {
+                    continue;
+                } else if (field == '_id') {
+                    return_obj.data.id = doc[field];
+                } else {
+                    return_obj['data'][field] = doc[field];
+                }
+            }
+            res.send(return_obj);
             return next();
         }
 
@@ -75,6 +111,7 @@ function createBrand(req, res, next) {
         location = req.params.location || '',
         founding_date = req.params.founding_date || '',// TODO find out why founding_date is coming up null
         brand = new Brand();
+
     if (req.access_level == 99) {
         // Admins skip the queue
         status = 'approved';
@@ -131,9 +168,7 @@ function removeBrand(req, res, next) {
             return next(err);
         } else {
             res.status(202);
-            var data = [
-                {"message": "The delete request has been submitted and is awaiting approval."}
-            ];
+            var data = {"message": "The delete request has been submitted and is awaiting approval."};
             res.send(data);
             return next();
         }
@@ -181,7 +216,6 @@ function getCigars(req, res, next) {
             sort_field = '-' + sort_field;
         }
     }
-    console.log('QUERY: ' + JSON.stringify(query_obj));
 
     // Get a count of documents in this query to we can calculate number of pages later.
     Cigar.find(query_obj).count(function (err, count) {
@@ -191,7 +225,6 @@ function getCigars(req, res, next) {
             doc_count = count;
         }
     });
-    // TODO add query complexity from getCigars() to getBrands()
 
     // Query that mofo!
     Cigar.find(query_obj, limit_fields, {limit: limit, skip: skip}).sort(sort_field).lean().exec(function (err, docs) {
@@ -238,6 +271,7 @@ function getCigar(req, res, next) {
             return next(new restify.ResourceNotFoundError("Cigar not found."));
         } else {
             var return_obj = {data: {}};
+            res.status(200);
             for (field in doc) {
                 // Remove Mongoose version field and rename MongoDB _id field for return
                 if (field == '__v') {
@@ -259,13 +293,12 @@ function createCigar(req, res, next) {
     // Create a new Cigar entry (aka: Where the Magic Happens)
     // Minimum required fields are brand and name
     var
-        list_fields = ['wrappers', 'binders', 'fillers'],
         return_obj = {data: {}, message: ''},
         cigar = new Cigar();
 
     for (param in req.params) {
 
-        if (list_fields.indexOf(param) != -1) {
+        if (req.list_fields.indexOf(param) != -1) {
             req.params[param] = cleanEmptyList(req.params[param].split(','));
         }
         cigar[param] = req.params[param];
@@ -302,20 +335,19 @@ function createCigar(req, res, next) {
 }
 
 function updateCigar(req, res, next) {
-    if (!req.params.id) {
-        return next(restify.MissingParameterError('You must supply an ID.'));
-    }
+
     var update_req = new UpdateRequest();
+
     update_req.type = 'cigar';
+    update_req.target_id = req.params.id;
     update_req.data = req.params;
+
     update_req.save(function (err, update_req) {
         if (err) {
             return next(err);
         } else {
             res.status(202);
-            var data = [
-                {"message": "The update has been submitted and is awaiting approval."}
-            ];
+            var data = {"message": "The update has been submitted and is awaiting approval."};
             res.send(data);
             return next();
         }
@@ -323,23 +355,25 @@ function updateCigar(req, res, next) {
 }
 
 function removeCigar(req, res, next) {
+
     if (!req.params.id) {
         return next(restify.MissingParameterError('You must supply an ID.'));
     } else if (!req.params.reason) {
         return next(restify.MissingParameterError('You must provide a reason.'))
     }
+
     var delete_req = new DeleteRequest();
+
     delete_req.target_id = req.params.id;
     delete_req.reason = req.params.reason;
-    delete_req.type = 'brand';
+    delete_req.type = 'cigar';
+
     delete_req.save(function (err, delete_req) {
         if (err) {
             return next(err);
         } else {
             res.status(202);
-            var data = [
-                {"message": "The delete request has been submitted and is awaiting approval."}
-            ];
+            var data = {"message": "The delete request has been submitted and is awaiting approval."};
             res.send(data);
             return next();
         }
@@ -413,6 +447,7 @@ server.use(function (req, res, next) {
     var
         theKey = req.params.api_key,
         cigar_fields = ['brand', 'name', 'vitola', 'color', 'fillers', 'wrappers', 'binders', 'strength', 'ring_gauge', 'length'],
+        list_fields = ['wrappers', 'binders', 'fillers'],
         system_fields = ['api_key'],
         mongo_fields = ['__v', '_id'],
         attribute_domains = {},
@@ -421,8 +456,10 @@ server.use(function (req, res, next) {
     if (!theKey) {
         return next(new restify.MissingParameterError("API key missing."));
     }
-    promise = AttributeDomain.find().lean().exec();
-    promise.then(
+
+    // Start promise chain.
+    AttributeDomain.find().lean().exec()
+        .then(
         function (attrdomains) {
             for (param in attrdomains[0]) {
                 if (mongo_fields.indexOf(param) == -1) {
@@ -437,6 +474,7 @@ server.use(function (req, res, next) {
             }
             req.access_level = apikey.access_level;
             req.cigar_fields = cigar_fields;
+            req.list_fields = list_fields;
             req.attribute_domains = attribute_domains;
             req.system_fields = system_fields;
             return next();

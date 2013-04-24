@@ -67,19 +67,18 @@ var AppSchema = new Schema({
 AppSchema.index({api_key: 1, user_id: 1});
 
 var UpdateRequestSchema = new Schema({
-    type: String,
-    target_type: String,
-    target_id: Schema.Types.ObjectId,
+    type: {type: String, required: true},
+    target_id: {type: Schema.Types.ObjectId, required: true},
     date_submitted: { type: Date, default: Date.now },
     data: Schema.Types.Mixed
 });
 UpdateRequestSchema.index({target_id: -1});
 
 var DeleteRequestSchema = new Schema({
-    type: String,
+    type: {type: String, required: true},
+    target_id: {type: Schema.Types.ObjectId, required: true},
     date_submitted: { type: Date, default: Date.now },
-    target_id: Schema.Types.ObjectId,
-    reason: String
+    reason: {type: String, required: true}
 });
 DeleteRequestSchema.index({target_id: -1});
 
