@@ -82,6 +82,22 @@ var DeleteRequestSchema = new Schema({
 });
 DeleteRequestSchema.index({target_id: -1});
 
+var LogSchema = new Schema({
+    name: String,
+    hostname: String,
+    pid: Number,
+    level: Number,
+    lang: String,
+    msg: String,
+    time: {type: Date},
+    v: Number,
+    api_key: String,
+    req: Schema.Types.Mixed,
+    err: Schema.Types.Mixed,
+    params: Schema.Types.Mixed
+});
+LogSchema.index({api_key: 1, time: -1});
+
 module.exports = {
     BrandSchema: BrandSchema,
     CigarSchema: CigarSchema,
@@ -89,5 +105,6 @@ module.exports = {
     UserSchema: UserSchema,
     AppSchema: AppSchema,
     DeleteRequestSchema: DeleteRequestSchema,
-    UpdateRequestSchema: UpdateRequestSchema
+    UpdateRequestSchema: UpdateRequestSchema,
+    LogSchema: LogSchema
 };

@@ -16,7 +16,8 @@
         "restify": "2.3.x",
         "url": "0.7.x",
         "validator": "1.1.x",
-        "util": "0.4.x"
+        "util": "0.4.x",
+        "bunyan": "0.21.x"
     },
     "engines": {
         "node": ">=0.10.3"

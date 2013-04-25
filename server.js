@@ -2,6 +2,16 @@ var
     restify = require('restify'),
     url = require('url'),
     mongoose = require('mongoose'),
+    bunyan = require('bunyan'),
+    log = bunyan.createLogger({
+        name: 'cigardb',
+        streams: [
+            {level: 'info', type: 'raw', stream: new saveLog()}
+        ],
+        serializers: {
+            req: reqSerializer,
+            err: bunyan.stdSerializers.err
+        }}),
     Schema = mongoose.Schema,
     config = require('./config.js'),
     db = mongoose.connect(config.creds.mongoose_auth),
@@ -13,7 +23,8 @@ var
     User = mongoose.model('User', schemas.UserSchema),
     App = mongoose.model('App', schemas.AppSchema),
     UpdateRequest = mongoose.model('UpdateRequest', schemas.UpdateRequestSchema),
-    DeleteRequest = mongoose.model('DeleteRequest', schemas.DeleteRequestSchema);
+    DeleteRequest = mongoose.model('DeleteRequest', schemas.DeleteRequestSchema),
+    APILog = mongoose.model('APILog', schemas.LogSchema);
 
 
 function getBrands(req, res, next) {
@@ -29,6 +40,7 @@ function getBrands(req, res, next) {
     // Get a count of documents in this query to we can calculate number of pages later.
     Brand.find({status: 'approved'}).count(function (err, count) {
         if (err) {
+            req.log.info(buildCustomLogFields(req, err), 'ERROR: getBrands: Count failed');
             return next(new restify.InternalError(err));
         } else {
             doc_count = count;
@@ -38,8 +50,10 @@ function getBrands(req, res, next) {
     Brand.find({status: 'approved'}, '', {limit: limit, skip: skip}).sort('name').exec(function (err, docs) {
         // TODO admins can query non-approved
         if (err) {
+            req.log.info(buildCustomLogFields(req, err), 'ERROR: getBrands: Query failed');
             return next(err);
         } else if (docs.length == 0) {
+            req.log.info(buildCustomLogFields(req), 'NOT FOUND: getBrands: Query returned no documents');
             return next(new restify.ResourceNotFoundError("No records found!"));
         } else {
             return_obj.numberOfPages = Math.floor(doc_count / limit);
@@ -59,6 +73,7 @@ function getBrands(req, res, next) {
                 return_obj.data.push(current_doc);
             }
             res.send(return_obj);
+            req.log.info(buildCustomLogFields(req), 'SUCCESS: getBrands: All clear');
             return next();
         }
     });
@@ -71,14 +86,19 @@ function getBrand(req, res, next) {
         return_obj = {data: {}};
 
     if (!req.params.id) {
-        return next(new restify.MissingParameterError("You must supply an ID."));
+        var err = new restify.MissingParameterError("You must supply an ID.");
+        req.log.info(buildCustomLogFields(req, err), 'ERROR: getBrand: ID parameter not provided');
+        return next(err);
     }
 
     Brand.findOne({_id: req.params.id, status: 'approved'}, 'name location founding_date website status updated').exec(function (err, doc) {
         if (err) {
-            return next(new restify.InternalError('FAIL'));
+            req.log.info(buildCustomLogFields(req, err), 'ERROR: getBrand: Query failed');
+            return next(err);
         } else if (!doc) {
-            return next(new restify.ResourceNotFoundError("Brand not found!"));
+            var err = new restify.ResourceNotFoundError("Brand not found!");
+            req.log.info(buildCustomLogFields(req, err), 'ERROR: getBrand: Query returned no documents');
+            return next(err);
         } else {
             res.status(200);
             for (field in doc) {
@@ -92,6 +112,7 @@ function getBrand(req, res, next) {
                 }
             }
             res.send(return_obj);
+            req.log.info(buildCustomLogFields(req), 'SUCCESS: getBrand: All clear');
             return next();
         }
 
@@ -102,7 +123,9 @@ function createBrand(req, res, next) {
     // Create a new Brand entry
     // Minimum required field is name
     if (!req.params.name) {
-        return next(restify.MissingParameterError('You must supply at least a name.'));
+        var err = new restify.MissingParameterError('You must supply at least a name.');
+        req.log.info(buildCustomLogFields(req, err), 'ERROR: createBrand: Name parameter not provided');
+        return next(err);
     }
     console.log('Creating a new brand');
     // Let's fill in the values manually
@@ -122,11 +145,13 @@ function createBrand(req, res, next) {
     brand.founding_date = founding_date;
     brand.save(function (err, brand) {
         if (err) {
+            req.log.info(buildCustomLogFields(req, err), 'ERROR: createBrand: Save failed');
             return next(err);
         } else {
             res.status(202);
             var data = {"data": {"id": brand.id}, "message": "The brand has been created and is awaiting approval."};
             res.send(data);
+            req.log.info(buildCustomLogFields(req), 'SUCCESS: createBrand: All clear');
             return next();
         }
     });
@@ -136,40 +161,54 @@ function createBrand(req, res, next) {
 // TODO fine tune update process. Scrub incoming values
 function updateBrand(req, res, next) {
     if (!req.params.id) {
-        return next(restify.MissingParameterError('You must supply an ID.'));
+        var err = new restify.MissingParameterError('You must supply an ID.');
+        req.log.info(buildCustomLogFields(req, err), 'ERROR: updateBrand: ID parameter not provided');
+        return next(err);
     }
     var update_req = new UpdateRequest();
     update_req.type = 'brand';
     update_req.data = req.params;
     update_req.save(function (err, update_req) {
         if (err) {
+            req.log.info(buildCustomLogFields(req, err), 'ERROR: updateBrand: Save failed');
             return next(err);
         } else {
             res.status(202);
             var data = {"message": "The update has been submitted and is awaiting approval."};
             res.send(data);
+            req.log.info(buildCustomLogFields(req), 'SUCCESS: updateBrand: All clear');
             return next();
         }
     })
 }
 
 function removeBrand(req, res, next) {
+
+    var err;
+
     if (!req.params.id) {
-        return next(restify.MissingParameterError('You must supply an ID.'));
+        err = new restify.MissingParameterError('You must supply an ID.');
     } else if (!req.params.reason) {
-        return next(restify.MissingParameterError('You must provide a reason.'))
+        err = new restify.MissingParameterError('You must provide a reason.');
     }
+    if (err) {
+        req.log.info(buildCustomLogFields(req, err), 'ERROR: removeBrand: Required parameter not provided');
+        return next(err);
+    }
+
     var delete_req = new DeleteRequest();
     delete_req.target_id = req.params.id;
     delete_req.reason = req.params.reason;
     delete_req.type = 'brand';
     delete_req.save(function (err, delete_req) {
         if (err) {
+            req.log.info(buildCustomLogFields(req, err), 'ERROR: removeBrand: Save failed');
             return next(err);
         } else {
             res.status(202);
             var data = {"message": "The delete request has been submitted and is awaiting approval."};
             res.send(data);
+            req.log.info(buildCustomLogFields(req), 'SUCCESS: removeBrand: All clear');
             return next();
         }
     });
@@ -207,7 +246,9 @@ function getCigars(req, res, next) {
     }
 
     if (!param_found && req.access_level < 1) {
-        return next(new restify.MissingParameterError("You must supply at least one field."));
+        var err = new restify.MissingParameterError("You must supply at least one field.");
+        req.log.info(buildCustomLogFields(req, err), 'ERROR: getCigars: Required parameter not provided');
+        return next(err);
     }
 
     if (req.params.sort_field) {
@@ -220,7 +261,8 @@ function getCigars(req, res, next) {
     // Get a count of documents in this query to we can calculate number of pages later.
     Cigar.find(query_obj).count(function (err, count) {
         if (err) {
-            return next(new restify.InternalError(err));
+            req.log.info(buildCustomLogFields(req, err), 'ERROR: getCigars: Count query failed');
+            return next(err);
         } else {
             doc_count = count;
         }
@@ -229,9 +271,12 @@ function getCigars(req, res, next) {
     // Query that mofo!
     Cigar.find(query_obj, limit_fields, {limit: limit, skip: skip}).sort(sort_field).lean().exec(function (err, docs) {
         if (err) {
-            return next(new restify.InternalError(err));
+            req.log.info(buildCustomLogFields(req, err), 'ERROR: getCigars: Query failed');
+            return next(err);
         } else if (docs.length == 0) {
-            return next(new restify.ResourceNotFoundError("No records found!"));
+            var err = new restify.ResourceNotFoundError("No records found!");
+            req.log.info(buildCustomLogFields(req, err), 'ERROR: getCigars: Query returned no documents');
+            return next(err);
         } else {
             return_obj.numberOfPages = Math.floor(doc_count / limit);
             return_obj.currentPage = page;
@@ -252,6 +297,7 @@ function getCigars(req, res, next) {
             }
             res.status(200);
             res.send(return_obj);
+            req.log.info(buildCustomLogFields(req), 'SUCCESS: getCigars: All clear');
             return next();
         }
     });
@@ -261,14 +307,19 @@ function getCigar(req, res, next) {
     // Return a single Cigar
 
     if (!req.params.id) {
-        return next(new restify.MissingParameterError("You must supply an ID."));
+        var err = new restify.MissingParameterError("You must supply an ID.");
+        req.log.info(buildCustomLogFields(req, err), 'ERROR: getCigar: ID parameter not provided');
+        return next(err);
     }
 
     Cigar.findOne({_id: req.params.id, status: 'approved'}, '').lean().exec(function (err, doc) {
         if (err) {
-            return next(new restify.InternalError('FAIL'));
+            req.log.info(buildCustomLogFields(req, err), 'ERROR: getCigar: Query failed');
+            return next(err);
         } else if (!doc) {
-            return next(new restify.ResourceNotFoundError("Cigar not found."));
+            var err = new restify.ResourceNotFoundError("Cigar not found.");
+            req.log.info(buildCustomLogFields(req, err), 'ERROR: getCigar: Query returned no documents');
+            return next(err);
         } else {
             var return_obj = {data: {}};
             res.status(200);
@@ -283,6 +334,7 @@ function getCigar(req, res, next) {
                 }
             }
             res.send(return_obj);
+            req.log.info(buildCustomLogFields(req), 'SUCCESS: getCigar: All clear');
             return next();
         }
     });
@@ -308,9 +360,12 @@ function createCigar(req, res, next) {
     // Don't check status so that users can create brands and cigars together without waiting for brands to get approved.
     Brand.find({name: cigar.brand}, 'name').exec(function (err, docs) {
         if (err) {
-            return next(new restify.InternalError(err));
+            req.log.info(buildCustomLogFields(req, err), 'ERROR: createCigar: Brand search query failed');
+            return next(err);
         } else if (docs.length == 0) {
-            return next(new restify.ResourceNotFoundError("The Brand you specified was not found in the database. If you want to add a new brand and associated cigars, please create the brand first."));
+            var err = new restify.ResourceNotFoundError("The Brand you specified was not found in the database. If you want to add a new brand and associated cigars, please create the brand first.");
+            req.log.info(buildCustomLogFields(req, err), 'ERROR: createCigar: Brand search returned no documents');
+            return next(err);
         }
     });
 
@@ -323,18 +378,26 @@ function createCigar(req, res, next) {
 
     cigar.save(function (err, cigar) {
         if (err) {
+            req.log.info(buildCustomLogFields(req, err), 'ERROR: createCigar: Save failed');
             return next(err);
         } else {
             res.status(202);
             return_obj.message = "The cigar has been created and is awaiting approval."
             return_obj.data = {"id": cigar.id};
             res.send(return_obj);
+            req.log.info(buildCustomLogFields(req), 'SUCCESS: createCigar: All clear');
             return next();
         }
     });
 }
 
 function updateCigar(req, res, next) {
+
+    if (!req.params.id) {
+        var err = new restify.MissingParameterError("You must supply an ID.");
+        req.log.info(buildCustomLogFields(req, err), 'ERROR: updateCigar: ID parameter not provided');
+        return next(err);
+    }
 
     var update_req = new UpdateRequest();
 
@@ -344,11 +407,13 @@ function updateCigar(req, res, next) {
 
     update_req.save(function (err, update_req) {
         if (err) {
+            req.log.info(buildCustomLogFields(req, err), 'ERROR: updateCigar: Save failed');
             return next(err);
         } else {
             res.status(202);
             var data = {"message": "The update has been submitted and is awaiting approval."};
             res.send(data);
+            req.log.info(buildCustomLogFields(req), 'SUCCESS: updateCigar: All clear');
             return next();
         }
     })
@@ -356,10 +421,16 @@ function updateCigar(req, res, next) {
 
 function removeCigar(req, res, next) {
 
+    var err;
+
     if (!req.params.id) {
-        return next(restify.MissingParameterError('You must supply an ID.'));
+        err = new restify.MissingParameterError('You must supply an ID.');
     } else if (!req.params.reason) {
-        return next(restify.MissingParameterError('You must provide a reason.'))
+        err = new restify.MissingParameterError('You must provide a reason.');
+    }
+    if (err) {
+        req.log.info(buildCustomLogFields(req, err), 'ERROR: removeCigar: Required parameter not provided');
+        return next(err);
     }
 
     var delete_req = new DeleteRequest();
@@ -370,11 +441,13 @@ function removeCigar(req, res, next) {
 
     delete_req.save(function (err, delete_req) {
         if (err) {
+            req.log.info(buildCustomLogFields(req, err), 'ERROR: removeCigar: Save failed');
             return next(err);
         } else {
             res.status(202);
             var data = {"message": "The delete request has been submitted and is awaiting approval."};
             res.send(data);
+            req.log.info(buildCustomLogFields(req), 'SUCCESS: removeCigar: All clear');
             return next();
         }
     });
@@ -388,6 +461,58 @@ function cleanEmptyList(val) {
         return val;
     }
 }
+
+function reqSerializer(req) {
+    if (!req || !req.connection)
+        return req;
+    return {
+        method: req.method,
+        url: req.url,
+        headers: req.headers,
+        remoteAddress: req.connection.remoteAddress,
+        remotePort: req.connection.remotePort
+    };
+    // Trailers: Skipping for speed. If you need trailers in your app, then
+    // make a custom serializer.
+    //if (Object.keys(trailers).length > 0) {
+    //  obj.trailers = req.trailers;
+    //}
+};
+
+// Assemble the object which defines our custom log fields
+function buildCustomLogFields(req, err) {
+    var log_object = {};
+    if (err) {
+        log_object.err = err;
+    }
+    if (req.params) {
+        log_object.api_key = req.params.api_key;
+        log_object.params = req.params;
+    } else {
+        log_object.api_key = req.api_key;
+    }
+    log_object.req = req;
+    return log_object;
+}
+
+// My Bunyan stream for saving log entries to MongoDB
+function saveLog() {
+}
+saveLog.prototype.write = function (rec) {
+    if (typeof (rec) !== 'object') {
+        console.error('error: raw stream got a non-object record: %j', rec)
+    } else {
+        var new_log = new APILog();
+        for (param in rec) {
+            new_log[param] = rec[param];
+        }
+        new_log.save(function (err, new_log_instance) {
+            if (err) {
+                // Could not save log entry. Fail silently and with much shame. /facepalm
+            }
+        });
+    }
+};
 
 // My custom JSON formatter, based off default code. Adds ValidationError handling for Mongoose validation
 function cigarDBFormatJSON(req, res, body) {
@@ -432,6 +557,7 @@ function cigarDBFormatJSON(req, res, body) {
 
 var server = restify.createServer({
     name: 'CigarDB API',
+    log: log,
     formatters: {
         'application/json; q=0.9': cigarDBFormatJSON
     }
@@ -450,8 +576,7 @@ server.use(function (req, res, next) {
         list_fields = ['wrappers', 'binders', 'fillers'],
         system_fields = ['api_key'],
         mongo_fields = ['__v', '_id'],
-        attribute_domains = {},
-        promise;
+        attribute_domains = {};
 
     if (!theKey) {
         return next(new restify.MissingParameterError("API key missing."));
@@ -466,20 +591,23 @@ server.use(function (req, res, next) {
                     attribute_domains[param] = attrdomains[0][param];
                 }
             }
-            return App.findOne({api_key: theKey}, 'api_key access_level').exec(); // Returns a promise
+            return App.findOne({api_key: theKey}, 'api_key accecss_level').exec(); // Returns a promise
         }).then(
         function (apikey) {
             if (!apikey) {
                 throw new Error("API key not found!");
             }
+            req.api_key = apikey.api_key;
             req.access_level = apikey.access_level;
             req.cigar_fields = cigar_fields;
             req.list_fields = list_fields;
             req.attribute_domains = attribute_domains;
             req.system_fields = system_fields;
+            req.log.info(buildCustomLogFields(req), 'REQUEST');
             return next();
         }
     ).then(null, function (err) {
+            log.info(buildCustomLogFields(req, err), err.message);
             return next(new restify.InternalError(err.message));
         }
     );
