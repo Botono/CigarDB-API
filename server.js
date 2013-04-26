@@ -461,8 +461,7 @@ CigarDB.createCigar = function (req, res, next) {
             // Mongoose.Model.save() doesn't return a promise! Lame!
             cigar.save(function (err, cigar) {
                 if (err) {
-                    req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: createCigar: Save failed');
-                    return next(err);
+                    throw new Error('Failed to save new cigar.')
                 } else {
                     res.status(202);
                     return_obj.message = "The cigar has been created and is awaiting approval."
