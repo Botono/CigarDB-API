@@ -13,7 +13,8 @@ var BrandSchema = new Schema({
     location: {lat: Number, lng: Number },
     website: {type: String, validate: validators.URLValidator},
     status: String,
-    updated: Date
+    moderator_notes: String,
+    updated: {type: Date, default: Date.now}
 });
 BrandSchema.index({location: "2d"});
 BrandSchema.index({name: 1});
@@ -32,7 +33,8 @@ var CigarSchema = new Schema({
     strength: {type: String, validate: validators.strengthValidator},
     year_introduced: Date,
     updated: { type: Date, default: Date.now },
-    status: String
+    status: String,
+    moderator_notes: String
 });
 CigarSchema.index({_id: 1, status: 1, brand: 1, name: 1});
 

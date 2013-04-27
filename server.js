@@ -22,6 +22,8 @@ var
 // Constants
 CigarDB.APPROVED = 'approved';
 CigarDB.CREATE_PENDING = 'create_pending';
+CigarDB.DENIED = 'denied';
+CigarDB.DELETED = 'deleted';
 
 CigarDB.cleanEmptyList = function (val) {
     // Feeling kind of anal about these list values.
@@ -541,6 +543,70 @@ CigarDB.removeCigar = function (req, res, next) {
     });
 };
 
+CigarDB.getCigarsCreateRequests = function (req, res, next) {
+    /*
+     Return a list of all cigars with status 'create_pending'
+     */
+    var
+        doc_count = 0,
+        sort_field = 'updated',
+        query_obj = {status: CigarDB.CREATE_PENDING},
+        return_obj = {};
+
+    // Moderators only!
+    if (req.access_level < 99) {
+        var err = new restify.NotAuthorizedError("You are not authorized!");
+        req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getCigarsCreateRequests: ' + err.message);
+        return next(err);
+    }
+
+    if (req.params.sort_field) {
+        sort_field = req.params.sort_field;
+        if (req.params.sort_direction && req.params.sort_direction == 'desc') {
+            sort_field = '-' + sort_field;
+        }
+    }
+
+    // Get a count of documents in this query
+    Cigar.find(query_obj, 'name').count().exec().then(
+        function (count) {
+            doc_count = count;
+            // Query that mofo!
+            return Cigar.find(query_obj).sort(sort_field).lean().exec();
+        }
+    ).then(
+        function (cigars) {
+            if (cigars.length == 0) {
+                throw new restify.ResourceNotFoundError("No records found!");
+            } else {
+                return_obj.numberOfDocuments = doc_count;
+                return_obj.data = [];
+                for (var i = 0; cigars[i]; i++) {
+                    var current_doc = {};
+                    for (field in cigars[i]) {
+                        // Remove Mongoose version field and rename MongoDB _id field for return
+                        if (field == '__v') {
+                            continue;
+                        } else if (field == '_id') {
+                            current_doc.id = cigars[i][field];
+                        } else {
+                            current_doc[field] = cigars[i][field];
+                        }
+                    }
+                    return_obj.data.push(current_doc);
+                }
+                res.status(200);
+                res.send(return_obj);
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: getCigarsCreateRequests: All clear');
+                return next();
+            }
+        }
+    ).then(null, function (err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getCigarsCreateRequests: ' + err.message);
+            return next(err);
+        });
+};
+
 CigarDB.log = bunyan.createLogger({
     name: 'cigardb',
     streams: [
@@ -605,7 +671,6 @@ CigarDB.server.use(function (req, res, next) {
             req.list_fields = list_fields;
             req.attribute_domains = attribute_domains;
             req.system_fields = system_fields;
-            req.log.info(CigarDB.buildCustomLogFields(req), 'REQUEST');
             return next();
         }
     ).then(null, function (err) {
@@ -628,6 +693,12 @@ CigarDB.server.get('/cigars/:id', CigarDB.getCigar);
 CigarDB.server.post('/cigars', CigarDB.createCigar);
 CigarDB.server.put('/cigars/:id', CigarDB.updateCigar);
 CigarDB.server.del('/cigars/:id', CigarDB.removeCigar);
+
+// Moderator routes
+// Cigars
+CigarDB.server.get('/moderate/cigarsCreateRequests', CigarDB.getCigarsCreateRequests);
+//CigarDB.server.put('/moderate/cigarsCreateRequests/:id', CigarDB.approveCigarCreation);
+//CigarDB.server.del('/moderate/cigarsCreateRequests/:id', CigarDB.denyCigarCreation);
 
 
 CigarDB.server.on('uncaughtException', function (req, res, route, err) {
