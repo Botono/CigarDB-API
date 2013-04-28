@@ -72,17 +72,22 @@ var UpdateRequestSchema = new Schema({
     type: {type: String, required: true},
     target_id: {type: Schema.Types.ObjectId, required: true},
     date_submitted: { type: Date, default: Date.now },
+    api_key: {type: String, required: true},
+    status: {type: String, required: true},
+    moderator_notes: String,
     data: Schema.Types.Mixed
 });
-UpdateRequestSchema.index({target_id: -1});
+UpdateRequestSchema.index({target_id: -1, type: 1, api_key: 1, status: 1, date_submitted: 1});
 
 var DeleteRequestSchema = new Schema({
     type: {type: String, required: true},
     target_id: {type: Schema.Types.ObjectId, required: true},
     date_submitted: { type: Date, default: Date.now },
+    api_key: {type: String, required: true},
+    status: {type: String, required: true},
     reason: {type: String, required: true}
 });
-DeleteRequestSchema.index({target_id: -1});
+DeleteRequestSchema.index({target_id: -1, type: 1, api_key: 1, status: 1, date_submitted: 1});
 
 var LogSchema = new Schema({
     name: String,

@@ -140,10 +140,11 @@ function populateDB() {
 }
 
 function clean_domain_values(raw_data, valid_values) {
-    if (!('contains' in String.prototype))
+    if (!('contains' in String.prototype)) {
         String.prototype.contains = function (str, startIndex) {
             return -1 !== this.indexOf(str, startIndex);
         };
+    }
     var cleaned_values = valid_values.filter(function (value) {
         if (value == 'Connecticut') {
             return raw_data[0].contains(value) && (!raw_data[0].contains('Connecticut Broadleaf') && !raw_data[0].contains('Connecticut Shade'));

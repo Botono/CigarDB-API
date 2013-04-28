@@ -22,6 +22,7 @@ var
 // Constants
 CigarDB.APPROVED = 'approved';
 CigarDB.CREATE_PENDING = 'create_pending';
+CigarDB.PENDING = 'pending';
 CigarDB.DENIED = 'denied';
 CigarDB.DELETED = 'deleted';
 
@@ -169,7 +170,6 @@ CigarDB.getBrands = function (req, res, next) {
         });
 };
 
-
 CigarDB.getBrand = function (req, res, next) {
     // Return a single Brand
 
@@ -258,7 +258,10 @@ CigarDB.updateBrand = function (req, res, next) {
     }
     var update_req = new UpdateRequest();
     update_req.type = 'brand';
+    update_req.api_key = req.api_key;
     update_req.data = req.params;
+    update_req.status = CigarDB.PENDING;
+
     update_req.save(function (err, update_req) {
         if (err) {
             req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: updateBrand: Save failed');
@@ -291,6 +294,9 @@ CigarDB.removeBrand = function (req, res, next) {
     delete_req.target_id = req.params.id;
     delete_req.reason = req.params.reason;
     delete_req.type = 'brand';
+    delete_req.api_key = req.api_key;
+    delete_req.status = CigarDB.PENDING;
+
     delete_req.save(function (err, delete_req) {
         if (err) {
             req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: removeBrand: Save failed');
@@ -492,7 +498,9 @@ CigarDB.updateCigar = function (req, res, next) {
 
     update_req.type = 'cigar';
     update_req.target_id = req.params.id;
+    update_req.api_key = req.api_key;
     update_req.data = req.params;
+    update_req.status = CigarDB.PENDING;
 
     update_req.save(function (err, update_req) {
         if (err) {
@@ -507,7 +515,6 @@ CigarDB.updateCigar = function (req, res, next) {
         }
     })
 };
-
 
 CigarDB.removeCigar = function (req, res, next) {
 
@@ -527,7 +534,9 @@ CigarDB.removeCigar = function (req, res, next) {
 
     delete_req.target_id = req.params.id;
     delete_req.reason = req.params.reason;
+    delete_req.api_key = req.api_key;
     delete_req.type = 'cigar';
+    delete_req.status = CigarDB.PENDING;
 
     delete_req.save(function (err, delete_req) {
         if (err) {
@@ -606,6 +615,802 @@ CigarDB.getCigarsCreateRequests = function (req, res, next) {
             return next(err);
         });
 };
+
+CigarDB.approveCigarCreation = function (req, res, next) {
+    // Approve a create cigar request
+    var
+        return_obj = {data: {}, message: ''},
+        cigar = {};
+
+    for (param in req.params) {
+        if (req.list_fields.indexOf(param) != -1) {
+            req.params[param] = CigarDB.cleanEmptyList(req.params[param].split(','));
+        }
+        cigar[param] = req.params[param];
+    }
+
+    // Moderators only!
+    if (req.access_level < 99) {
+        var err = new restify.NotAuthorizedError("You are not authorized!");
+        req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: approveCigarCreation: ' + err.message);
+        return next(err);
+    } else {
+        cigar.status = CigarDB.APPROVED;
+    }
+
+    // Let's make sure the brand they specified already exists.
+    Brand.find({name: cigar.brand, status: CigarDB.APPROVED}, 'name').exec().then(
+        function (brands) {
+            if (brands.length == 0) {
+                throw new restify.ResourceNotFoundError("The Brand you specified was not found in the database. If you want to add a new brand and associated cigars, please create the brand first.");
+            }
+            return Cigar.update({_id: req.params.id}, cigar).exec();
+        }
+    ).then(
+        function (numberAffected, raw) {
+            if (numberAffected != 1) {
+                throw new restify.ResourceNotFoundError('No records where updated (Check your query).');
+            } else {
+                res.status(200);
+                return_obj.message = 'Cigar approved!';
+                return_obj.data = raw;
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: approveCigarCreation: All clear');
+                return next();
+            }
+        }
+    ).then(null, function (err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: approveCigarCreation: ' + err.message);
+            return next(err);
+        });
+};
+
+CigarDB.denyCigarCreation = function (req, res, next) {
+    // Deny a create cigar request
+    var
+        return_obj = {data: {}, message: ''},
+        cigar = {moderator_notes: req.params.moderator_notes};
+
+    // Moderators only!
+    if (req.access_level < 99) {
+        var err = new restify.NotAuthorizedError("You are not authorized!");
+        req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: denyCigarCreation: ' + err.message);
+        return next(err);
+    } else {
+        cigar.status = CigarDB.DENIED;
+    }
+
+    Cigar.update({_id: req.params.id}, cigar).exec().then(
+        function (numberAffected, raw) {
+            if (numberAffected != 1) {
+                throw new restify.ResourceNotFoundError('No records where updated (Check your query).');
+            } else {
+                res.status(200);
+                return_obj.message = 'Cigar denied!';
+                return_obj.data = raw;
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: denyCigarCreation: All clear');
+                return next();
+            }
+        }
+    ).then(null, function (err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: denyCigarCreation: ' + err.message);
+            return next(err);
+        });
+};
+
+CigarDB.getCigarsUpdateRequests = function (req, res, next) {
+    /*
+     Return a list of all cigars update requests
+     */
+    var
+        doc_count = 0,
+        sort_field = 'date_submitted',
+        query_obj = {type: 'cigar', status: CigarDB.PENDING},
+        return_obj = {};
+
+    // Moderators only!
+    if (req.access_level < 99) {
+        var err = new restify.NotAuthorizedError("You are not authorized!");
+        req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getCigarsUpdateRequests: ' + err.message);
+        return next(err);
+    }
+
+    if (req.params.sort_field) {
+        sort_field = req.params.sort_field;
+        if (req.params.sort_direction && req.params.sort_direction == 'desc') {
+            sort_field = '-' + sort_field;
+        }
+    }
+
+    // Get a count of documents in this query
+    UpdateRequest.find(query_obj, 'name').count().exec().then(
+        function (count) {
+            doc_count = count;
+            // Query that mofo!
+            return UpdateRequest.find(query_obj).sort(sort_field).lean().exec();
+        }
+    ).then(
+        function (update_reqs) {
+            if (update_reqs.length == 0) {
+                throw new restify.ResourceNotFoundError("No records found!");
+            } else {
+                return_obj.numberOfDocuments = doc_count;
+                return_obj.data = [];
+                for (var i = 0; update_reqs[i]; i++) {
+                    var current_doc = {};
+                    for (field in update_reqs[i]) {
+                        // Remove Mongoose version field and rename MongoDB _id field for return
+                        if (field == '__v') {
+                            continue;
+                        } else if (field == '_id') {
+                            current_doc.id = update_reqs[i][field];
+                        } else {
+                            current_doc[field] = update_reqs[i][field];
+                        }
+                    }
+                    return_obj.data.push(current_doc);
+                }
+                res.status(200);
+                res.send(return_obj);
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: getCigarsUpdateRequests: All clear');
+                return next();
+            }
+        }
+    ).then(null, function (err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getCigarsUpdateRequests: ' + err.message);
+            return next(err);
+        });
+};
+
+CigarDB.approveCigarUpdate = function (req, res, next) {
+    // Approve an update cigar request
+    var
+        return_obj = {data: {}, message: ''},
+        mod_changes = {};
+
+    for (param in req.params) {
+        if (req.list_fields.indexOf(param) != -1) {
+            req.params[param] = CigarDB.cleanEmptyList(req.params[param].split(','));
+        }
+        mod_changes[param] = req.params[param];
+    }
+
+    // Moderators only!
+    if (req.access_level < 99) {
+        var err = new restify.NotAuthorizedError("You are not authorized!");
+        req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: approveCigarUpdate: ' + err.message);
+        return next(err);
+    } else {
+        mod_changes.status = CigarDB.APPROVED;
+    }
+
+    UpdateRequest.findByIdAndUpdate(req.params.id, {status: CigarDB.APPROVED}).exec().then(
+        function (update_req) {
+            if (!update_req) {
+                throw new restify.ResourceNotFoundError('Update request was not archived (Check your query).');
+            } else {
+                return Cigar.update({_id: mod_changes.target_id}, mod_changes).exec();
+            }
+        }
+    ).then(
+        function (numberAffected, raw) {
+            if (numberAffected != 1) {
+                throw new restify.ResourceNotFoundError('No records where updated (Check your query).');
+            } else {
+                res.status(200);
+                return_obj.message = 'Cigar update approved!';
+                return_obj.data = raw;
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: approveCigarUpdate: All clear');
+                return next();
+            }
+        }
+    ).then(null, function (err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: approveCigarUpdate: ' + err.message);
+            return next(err);
+        });
+};
+
+CigarDB.denyCigarUpdate = function (req, res, next) {
+    // Deny an update cigar request
+    var
+        return_obj = {data: {}, message: ''},
+        update_req = {
+            moderator_notes: req.params.moderator_notes,
+            status: CigarDB.DENIED
+        };
+
+    // Moderators only!
+    if (req.access_level < 99) {
+        var err = new restify.NotAuthorizedError("You are not authorized!");
+        req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: denyCigarUpdate: ' + err.message);
+        return next(err);
+    }
+
+    UpdateRequest.update({_id: req.params.id}, update_req).exec().then(
+        function (numberAffected, raw) {
+            if (numberAffected != 1) {
+                throw new restify.ResourceNotFoundError('No records where updated (Check your query).');
+            } else {
+                res.status(200);
+                return_obj.message = 'Cigar update denied!';
+                return_obj.data = raw;
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: denyCigarUpdate: All clear');
+                return next();
+            }
+        }
+    ).then(null, function (err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: denyCigarUpdate: ' + err.message);
+            return next(err);
+        });
+};
+
+CigarDB.getCigarsDeleteRequests = function (req, res, next) {
+    /*
+     Return a list of all cigars delete requests
+     */
+    var
+        doc_count = 0,
+        sort_field = 'date_submitted',
+        query_obj = {type: 'cigar', status: CigarDB.PENDING},
+        return_obj = {};
+
+    // Moderators only!
+    if (req.access_level < 99) {
+        var err = new restify.NotAuthorizedError("You are not authorized!");
+        req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getCigarsDeleteRequests: ' + err.message);
+        return next(err);
+    }
+
+    if (req.params.sort_field) {
+        sort_field = req.params.sort_field;
+        if (req.params.sort_direction && req.params.sort_direction === 'desc') {
+            sort_field = '-' + sort_field;
+        }
+    }
+
+    // Get a count of documents in this query
+    DeleteRequest.find(query_obj, 'name').count().exec().then(
+        function (count) {
+            doc_count = count;
+            // Query that mofo!
+            return DeleteRequest.find(query_obj).sort(sort_field).lean().exec();
+        }
+    ).then(
+        function (delete_reqs) {
+            if (delete_reqs.length == 0) {
+                throw new restify.ResourceNotFoundError("No records found!");
+            } else {
+                return_obj.numberOfDocuments = doc_count;
+                return_obj.data = [];
+                for (var i = 0; delete_reqs[i]; i++) {
+                    var current_doc = {};
+                    for (field in delete_reqs[i]) {
+                        // Remove Mongoose version field and rename MongoDB _id field for return
+                        if (field == '__v') {
+                            continue;
+                        } else if (field == '_id') {
+                            current_doc.id = delete_reqs[i][field];
+                        } else {
+                            current_doc[field] = delete_reqs[i][field];
+                        }
+                    }
+                    return_obj.data.push(current_doc);
+                }
+                res.status(200);
+                res.send(return_obj);
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: getCigarsDeleteRequests: All clear');
+                return next();
+            }
+        }
+    ).then(null, function (err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getCigarsDeleteRequests: ' + err.message);
+            return next(err);
+        });
+};
+
+CigarDB.approveCigarDelete = function (req, res, next) {
+    // Approve a delete cigar request
+    var
+        return_obj = {data: {}, message: ''},
+        mod_changes = {status: CigarDB.DELETED};
+
+    // Moderators only!
+    if (req.access_level < 99) {
+        var err = new restify.NotAuthorizedError("You are not authorized!");
+        req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: approveCigarDelete: ' + err.message);
+        return next(err);
+    }
+
+    DeleteRequest.findByIdAndUpdate(req.params.id, {status: CigarDB.APPROVED}).exec().then(
+        function (delete_req) {
+            if (!delete_req) {
+                throw new restify.ResourceNotFoundError('Delete request was not archived (Check your query).');
+            } else {
+                return Cigar.update({_id: delete_req.target_id}, mod_changes).exec();
+            }
+        }
+    ).then(
+        function (numberAffected, raw) {
+            if (numberAffected != 1) {
+                throw new restify.ResourceNotFoundError('No records where updated (Check your query).');
+            } else {
+                res.status(200);
+                return_obj.message = 'Cigar delete approved!';
+                return_obj.data = raw;
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: approveCigarDelete: All clear');
+                return next();
+            }
+        }
+    ).then(null, function (err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: approveCigarDelete: ' + err.message);
+            return next(err);
+        });
+};
+
+CigarDB.denyCigarDelete = function (req, res, next) {
+    // Deny an update cigar request
+    var
+        return_obj = {data: {}, message: ''},
+        delete_req = {
+            moderator_notes: req.params.moderator_notes,
+            status: CigarDB.DENIED
+        };
+
+    // Moderators only!
+    if (req.access_level < 99) {
+        var err = new restify.NotAuthorizedError("You are not authorized!");
+        req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: denyCigarDelete: ' + err.message);
+        return next(err);
+    }
+
+    DeleteRequest.update({_id: req.params.id}, delete_req).exec().then(
+        function (numberAffected, raw) {
+            if (numberAffected != 1) {
+                throw new restify.ResourceNotFoundError('No records where updated (Check your query).');
+            } else {
+                res.status(200);
+                return_obj.message = 'Cigar delete request denied!';
+                return_obj.data = raw;
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: denyCigarDelete: All clear');
+                return next();
+            }
+        }
+    ).then(null, function (err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: denyCigarDelete: ' + err.message);
+            return next(err);
+        });
+};
+
+CigarDB.getBrandsCreateRequests = function (req, res, next) {
+    /*
+     Return a list of all brands with status 'create_pending'
+     */
+    var
+        doc_count = 0,
+        sort_field = 'updated',
+        query_obj = {status: CigarDB.CREATE_PENDING},
+        return_obj = {};
+
+    // Moderators only!
+    if (req.access_level < 99) {
+        var err = new restify.NotAuthorizedError("You are not authorized!");
+        req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getBrandsCreateRequests: ' + err.message);
+        return next(err);
+    }
+
+    if (req.params.sort_field) {
+        sort_field = req.params.sort_field;
+        if (req.params.sort_direction && req.params.sort_direction == 'desc') {
+            sort_field = '-' + sort_field;
+        }
+    }
+
+    // Get a count of documents in this query
+    Brand.find(query_obj, 'name').count().exec().then(
+        function (count) {
+            doc_count = count;
+            // Query that mofo!
+            return Brand.find(query_obj).sort(sort_field).lean().exec();
+        }
+    ).then(
+        function (brands) {
+            if (brands.length == 0) {
+                throw new restify.ResourceNotFoundError("No records found!");
+            } else {
+                return_obj.numberOfDocuments = doc_count;
+                return_obj.data = [];
+                for (var i = 0; brands[i]; i++) {
+                    var current_doc = {};
+                    for (field in brands[i]) {
+                        // Remove Mongoose version field and rename MongoDB _id field for return
+                        if (field == '__v') {
+                            continue;
+                        } else if (field == '_id') {
+                            current_doc.id = brands[i][field];
+                        } else {
+                            current_doc[field] = brands[i][field];
+                        }
+                    }
+                    return_obj.data.push(current_doc);
+                }
+                res.status(200);
+                res.send(return_obj);
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: getBrandsCreateRequests: All clear');
+                return next();
+            }
+        }
+    ).then(null, function (err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getBrandsCreateRequests: ' + err.message);
+            return next(err);
+        });
+};
+
+CigarDB.approveBrandCreation = function (req, res, next) {
+    // Approve a create cigar request
+    var
+        return_obj = {data: {}, message: ''},
+        brand_obj = {};
+
+    for (param in req.params) {
+        if (req.list_fields.indexOf(param) != -1) {
+            req.params[param] = CigarDB.cleanEmptyList(req.params[param].split(','));
+        }
+        brand_obj[param] = req.params[param];
+    }
+
+    // Moderators only!
+    if (req.access_level < 99) {
+        var err = new restify.NotAuthorizedError("You are not authorized!");
+        req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: approveBrandCreation: ' + err.message);
+        return next(err);
+    } else {
+        brand_obj.status = CigarDB.APPROVED;
+    }
+
+    Brand.update({_id: req.params.id}, brand_obj).exec().then(
+        function (numberAffected, raw) {
+            if (numberAffected != 1) {
+                throw new restify.ResourceNotFoundError('No records where updated (Check your query).');
+            } else {
+                res.status(200);
+                return_obj.message = 'Brand approved!';
+                return_obj.data = raw;
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: approveBrandCreation: All clear');
+                return next();
+            }
+        }
+    ).then(null, function (err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: approveBrandCreation: ' + err.message);
+            return next(err);
+        });
+};
+
+CigarDB.denyBrandCreation = function (req, res, next) {
+    // Deny a create brand request
+    var
+        return_obj = {data: {}, message: ''},
+        brand_obj = {
+            moderator_notes: req.params.moderator_notes,
+            status: CigarDB.DENIED
+        };
+
+    // Moderators only!
+    if (req.access_level < 99) {
+        var err = new restify.NotAuthorizedError("You are not authorized!");
+        req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: denyBrandCreation: ' + err.message);
+        return next(err);
+    }
+
+    Brand.findByIdAndUpdate(req.params.id, brand_obj).exec().then(
+        function (brand_updated) {
+            if (!brand_updated) {
+                throw new restify.ResourceNotFoundError('No records where updated (Check your query).');
+            } else {
+                // Might as well deny any cigars that were added along with this brand!
+                return Cigar.update({brand: brand_updated.name}, {status: CigarDB.DENIED}, {multi: true}).exec();
+            }
+        }
+    ).then(
+        function (numberUpdated, raw) {
+            res.status(200);
+            return_obj.message = 'Brand creation denied!';
+            if (numberUpdated > 0) {
+                return_obj.message += ' (Also denied ' + numberUpdated + ' cigars that used this brand.)';
+            }
+            return_obj.data = raw;
+            req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: denyBrandCreation: All clear');
+            return next();
+        }
+    ).then(null, function (err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: denyBrandCreation: ' + err.message);
+            return next(err);
+        });
+};
+
+CigarDB.getBrandsUpdateRequests = function (req, res, next) {
+    /*
+     Return a list of all brands update requests
+     */
+    var
+        doc_count = 0,
+        sort_field = 'date_submitted',
+        query_obj = {type: 'brand', status: CigarDB.PENDING},
+        return_obj = {};
+
+    // Moderators only!
+    if (req.access_level < 99) {
+        var err = new restify.NotAuthorizedError("You are not authorized!");
+        req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getBrandsUpdateRequests: ' + err.message);
+        return next(err);
+    }
+
+    if (req.params.sort_field) {
+        sort_field = req.params.sort_field;
+        if (req.params.sort_direction && req.params.sort_direction == 'desc') {
+            sort_field = '-' + sort_field;
+        }
+    }
+
+    // Get a count of documents in this query
+    UpdateRequest.find(query_obj, 'name').count().exec().then(
+        function (count) {
+            doc_count = count;
+            // Query that mofo!
+            return UpdateRequest.find(query_obj).sort(sort_field).lean().exec();
+        }
+    ).then(
+        function (update_reqs) {
+            if (update_reqs.length == 0) {
+                throw new restify.ResourceNotFoundError("No records found!");
+            } else {
+                return_obj.numberOfDocuments = doc_count;
+                return_obj.data = [];
+                for (var i = 0; update_reqs[i]; i++) {
+                    var current_doc = {};
+                    for (field in update_reqs[i]) {
+                        // Remove Mongoose version field and rename MongoDB _id field for return
+                        if (field == '__v') {
+                            continue;
+                        } else if (field == '_id') {
+                            current_doc.id = update_reqs[i][field];
+                        } else {
+                            current_doc[field] = update_reqs[i][field];
+                        }
+                    }
+                    return_obj.data.push(current_doc);
+                }
+                res.status(200);
+                res.send(return_obj);
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: getBrandsUpdateRequests: All clear');
+                return next();
+            }
+        }
+    ).then(null, function (err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getBrandsUpdateRequests: ' + err.message);
+            return next(err);
+        });
+};
+
+CigarDB.approveBrandUpdate = function (req, res, next) {
+    // Approve an update brand request
+    var
+        return_obj = {data: {}, message: ''},
+        mod_changes = {
+            status: CigarDB.APPROVED
+        };
+
+    for (param in req.params) {
+        mod_changes[param] = req.params[param];
+    }
+
+    // Moderators only!
+    if (req.access_level < 99) {
+        var err = new restify.NotAuthorizedError("You are not authorized!");
+        req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: approveBrandUpdate: ' + err.message);
+        return next(err);
+    }
+
+    UpdateRequest.findByIdAndUpdate(req.params.id, {status: CigarDB.APPROVED}).exec().then(
+        function (update_req) {
+            if (!update_req) {
+                throw new restify.ResourceNotFoundError('Update request was not archived (Check your query).');
+            } else {
+                return Brand.update({_id: mod_changes.target_id}, mod_changes).exec();
+            }
+        }
+    ).then(
+        function (numberAffected, raw) {
+            if (numberAffected != 1) {
+                throw new restify.ResourceNotFoundError('No records where updated (Check your query).');
+            } else {
+                res.status(200);
+                return_obj.message = 'Brand update approved!';
+                return_obj.data = raw;
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: approveBrandUpdate: All clear');
+                return next();
+            }
+        }
+    ).then(null, function (err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: approveBrandUpdate: ' + err.message);
+            return next(err);
+        });
+};
+
+CigarDB.denyBrandUpdate = function (req, res, next) {
+    // Deny an update brand request
+    var
+        return_obj = {data: {}, message: ''},
+        update_req = {
+            moderator_notes: req.params.moderator_notes,
+            status: CigarDB.DENIED
+        };
+
+    // Moderators only!
+    if (req.access_level < 99) {
+        var err = new restify.NotAuthorizedError("You are not authorized!");
+        req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: denyBrandUpdate: ' + err.message);
+        return next(err);
+    }
+
+    UpdateRequest.update({_id: req.params.id}, update_req).exec().then(
+        function (numberAffected, raw) {
+            if (numberAffected != 1) {
+                throw new restify.ResourceNotFoundError('No records where updated (Check your query).');
+            } else {
+                res.status(200);
+                return_obj.message = 'Brand update denied!';
+                return_obj.data = raw;
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: denyBrandUpdate: All clear');
+                return next();
+            }
+        }
+    ).then(null, function (err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: denyBrandUpdate: ' + err.message);
+            return next(err);
+        });
+};
+
+CigarDB.getBrandsDeleteRequests = function (req, res, next) {
+    /*
+     Return a list of all brands delete requests
+     */
+    var
+        doc_count = 0,
+        sort_field = 'date_submitted',
+        query_obj = {type: 'brand', status: CigarDB.PENDING},
+        return_obj = {};
+
+    // Moderators only!
+    if (req.access_level < 99) {
+        var err = new restify.NotAuthorizedError("You are not authorized!");
+        req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getBrandsDeleteRequests: ' + err.message);
+        return next(err);
+    }
+
+    if (req.params.sort_field) {
+        sort_field = req.params.sort_field;
+        if (req.params.sort_direction && req.params.sort_direction === 'desc') {
+            sort_field = '-' + sort_field;
+        }
+    }
+
+    // Get a count of documents in this query
+    DeleteRequest.find(query_obj, 'name').count().exec().then(
+        function (count) {
+            doc_count = count;
+            // Query that mofo!
+            return DeleteRequest.find(query_obj).sort(sort_field).lean().exec();
+        }
+    ).then(
+        function (delete_reqs) {
+            if (delete_reqs.length == 0) {
+                throw new restify.ResourceNotFoundError("No records found!");
+            } else {
+                return_obj.numberOfDocuments = doc_count;
+                return_obj.data = [];
+                for (var i = 0; delete_reqs[i]; i++) {
+                    var current_doc = {};
+                    for (field in delete_reqs[i]) {
+                        // Remove Mongoose version field and rename MongoDB _id field for return
+                        if (field == '__v') {
+                            continue;
+                        } else if (field == '_id') {
+                            current_doc.id = delete_reqs[i][field];
+                        } else {
+                            current_doc[field] = delete_reqs[i][field];
+                        }
+                    }
+                    return_obj.data.push(current_doc);
+                }
+                res.status(200);
+                res.send(return_obj);
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: getBrandsDeleteRequests: All clear');
+                return next();
+            }
+        }
+    ).then(null, function (err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getBrandsDeleteRequests: ' + err.message);
+            return next(err);
+        });
+};
+
+CigarDB.approveBrandDelete = function (req, res, next) {
+    // Approve a delete cigar request
+    var
+        return_obj = {
+            data: {},
+            message: ''
+        },
+        mod_changes = {
+            status: CigarDB.DELETED
+        };
+
+    // Moderators only!
+    if (req.access_level < 99) {
+        var err = new restify.NotAuthorizedError("You are not authorized!");
+        req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: approveBrandDelete: ' + err.message);
+        return next(err);
+    }
+
+    DeleteRequest.findByIdAndUpdate(req.params.id, {status: CigarDB.APPROVED}).exec().then(
+        function (delete_req) {
+            if (!delete_req) {
+                throw new restify.ResourceNotFoundError('Delete request was not archived (Check your query).');
+            } else {
+                return Brand.update({_id: delete_req.target_id}, mod_changes).exec();
+            }
+        }
+    ).then(
+        function (numberAffected, raw) {
+            if (numberAffected != 1) {
+                throw new restify.ResourceNotFoundError('No records where updated (Check your query).');
+            } else {
+                res.status(200);
+                return_obj.message = 'Brand delete approved!';
+                return_obj.data = raw;
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: approveBrandDelete: All clear');
+                return next();
+            }
+        }
+    ).then(null, function (err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: approveBrandDelete: ' + err.message);
+            return next(err);
+        });
+};
+
+CigarDB.denyBrandDelete = function (req, res, next) {
+    // Deny an update brand request
+    var
+        return_obj = {data: {}, message: ''},
+        delete_req = {
+            moderator_notes: req.params.moderator_notes,
+            status: CigarDB.DENIED
+        };
+
+    // Moderators only!
+    if (req.access_level < 99) {
+        var err = new restify.NotAuthorizedError("You are not authorized!");
+        req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: denyBrandDelete: ' + err.message);
+        return next(err);
+    }
+
+    DeleteRequest.update({_id: req.params.id}, delete_req).exec().then(
+        function (numberAffected, raw) {
+            if (numberAffected != 1) {
+                throw new restify.ResourceNotFoundError('No records where updated (Check your query).');
+            } else {
+                res.status(200);
+                return_obj.message = 'Brand delete request denied!';
+                return_obj.data = raw;
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: denyBrandDelete: All clear');
+                return next();
+            }
+        }
+    ).then(null, function (err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: denyBrandDelete: ' + err.message);
+            return next(err);
+        });
+};
+
 
 CigarDB.log = bunyan.createLogger({
     name: 'cigardb',
@@ -695,11 +1500,31 @@ CigarDB.server.put('/cigars/:id', CigarDB.updateCigar);
 CigarDB.server.del('/cigars/:id', CigarDB.removeCigar);
 
 // Moderator routes
-// Cigars
+// Cigars - Create Requests
 CigarDB.server.get('/moderate/cigarsCreateRequests', CigarDB.getCigarsCreateRequests);
-//CigarDB.server.put('/moderate/cigarsCreateRequests/:id', CigarDB.approveCigarCreation);
-//CigarDB.server.del('/moderate/cigarsCreateRequests/:id', CigarDB.denyCigarCreation);
+CigarDB.server.put('/moderate/cigarsCreateRequests/:id', CigarDB.approveCigarCreation);
+CigarDB.server.del('/moderate/cigarsCreateRequests/:id', CigarDB.denyCigarCreation);
+// Cigars - Update Requests
+CigarDB.server.get('/moderate/cigarsUpdateRequests', CigarDB.getCigarsUpdateRequests);
+CigarDB.server.put('/moderate/cigarsUpdateRequests/:id', CigarDB.approveCigarUpdate);
+CigarDB.server.del('/moderate/cigarsUpdateRequests/:id', CigarDB.denyCigarUpdate);
+// Cigars - Delete Requests
+CigarDB.server.get('/moderate/cigarsDeleteRequests', CigarDB.getCigarsDeleteRequests);
+CigarDB.server.put('/moderate/cigarsDeleteRequests/:id', CigarDB.approveCigarDelete);
+CigarDB.server.del('/moderate/cigarsDeleteRequests/:id', CigarDB.denyCigarDelete);
 
+// Brands - Create Requests
+CigarDB.server.get('/moderate/brandsCreateRequests', CigarDB.getBrandsCreateRequests);
+CigarDB.server.put('/moderate/brandsCreateRequests/:id', CigarDB.approveBrandCreation);
+CigarDB.server.del('/moderate/brandsCreateRequests/:id', CigarDB.denyBrandCreation);
+// Brands - Update Requests
+CigarDB.server.get('/moderate/brandsUpdateRequests', CigarDB.getBrandsUpdateRequests);
+CigarDB.server.put('/moderate/brandsUpdateRequests/:id', CigarDB.approveBrandUpdate);
+CigarDB.server.del('/moderate/brandsUpdateRequests/:id', CigarDB.denyBrandUpdate);
+// Brands - Delete Requests
+CigarDB.server.get('/moderate/brandsDeleteRequests', CigarDB.getBrandsDeleteRequests);
+CigarDB.server.put('/moderate/brandsDeleteRequests/:id', CigarDB.approveBrandDelete);
+CigarDB.server.del('/moderate/brandsDeleteRequests/:id', CigarDB.denyBrandDelete);
 
 CigarDB.server.on('uncaughtException', function (req, res, route, err) {
     req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: Uncaught Exception: ' + err.message);
