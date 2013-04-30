@@ -64,9 +64,11 @@ var AppSchema = new Schema({
     name: String,
     description: String,
     url: String,
-    date_created: { type: Date, default: Date.now }
+    date_created: { type: Date, default: Date.now },
+    access_count: {type: Number, default: 0},
+    last_used: {type: Date, default: Date.now}
 });
-AppSchema.index({api_key: 1, user_id: 1});
+AppSchema.index({api_key: 1, user_id: 1, last_accessed: -1});
 
 var UpdateRequestSchema = new Schema({
     type: {type: String, required: true},

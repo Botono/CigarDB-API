@@ -25,6 +25,11 @@ CigarDB.CREATE_PENDING = 'create_pending';
 CigarDB.PENDING = 'pending';
 CigarDB.DENIED = 'denied';
 CigarDB.DELETED = 'deleted';
+CigarDB.DEV_DAILY_LIMIT_REQUESTS = 500;
+CigarDB.DEV_DAILY_LIMIT_HOURS = 24;
+CigarDB.MODERATOR = 99;
+CigarDB.PREMIUM = 10;
+CigarDB.DEVELOPER = 0;
 
 CigarDB.cleanEmptyList = function (val) {
     // Feeling kind of anal about these list values.
@@ -114,7 +119,7 @@ CigarDB.getBrands = function (req, res, next) {
     // search for brands by name if name parameter supplied.
     // Premium members get full list without paging.
 
-    var limit = (req.access_level > 0) ? 0 : 50,
+    var limit = (req.access_level > CigarDB.DEVELOPER) ? 0 : 50,
         page = (req.params.page) ? req.params.page : 1,
         skip = (page > 1) ? page * 50 : 0,
         options_obj = {skip: skip},
@@ -227,7 +232,7 @@ CigarDB.createBrand = function (req, res, next) {
         founding_date = req.params.founding_date || '',// TODO find out why founding_date is coming up null
         brand = new Brand();
 
-    if (req.access_level == 99) {
+    if (req.access_level == CigarDB.MODERATOR) {
         // Admins skip the queue
         status = CigarDB.APPROVED;
     }
@@ -319,7 +324,7 @@ CigarDB.getCigars = function (req, res, next) {
     var
         param_found = false,
         doc_count = 0,
-        limit = (req.access_level > 0) ? 9999 : 50,
+        limit = (req.access_level > CigarDB.DEVELOPER) ? 9999 : 50,
         page = (req.params.page) ? req.params.page : 1,
         skip = (page > 1) ? page * 50 : 0,
         sort_field = '',
@@ -342,7 +347,7 @@ CigarDB.getCigars = function (req, res, next) {
         }
     }
 
-    if (!param_found && req.access_level < 1) {
+    if (!param_found && req.access_level < CigarDB.PREMIUM) {
         var err = new restify.MissingParameterError("You must supply at least one field.");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getCigars: Required parameter not provided');
         return next(err);
@@ -450,7 +455,7 @@ CigarDB.createCigar = function (req, res, next) {
     }
 
     // Admins skip the queue
-    if (req.access_level == 99) {
+    if (req.access_level == CigarDB.MODERATOR) {
         cigar.status = CigarDB.APPROVED;
     } else {
         cigar.status = CigarDB.CREATE_PENDING;
@@ -563,7 +568,7 @@ CigarDB.getCigarsCreateRequests = function (req, res, next) {
         return_obj = {};
 
     // Moderators only!
-    if (req.access_level < 99) {
+    if (req.access_level < CigarDB.MODERATOR) {
         var err = new restify.NotAuthorizedError("You are not authorized!");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getCigarsCreateRequests: ' + err.message);
         return next(err);
@@ -630,7 +635,7 @@ CigarDB.approveCigarCreation = function (req, res, next) {
     }
 
     // Moderators only!
-    if (req.access_level < 99) {
+    if (req.access_level < CigarDB.MODERATOR) {
         var err = new restify.NotAuthorizedError("You are not authorized!");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: approveCigarCreation: ' + err.message);
         return next(err);
@@ -671,7 +676,7 @@ CigarDB.denyCigarCreation = function (req, res, next) {
         cigar = {moderator_notes: req.params.moderator_notes};
 
     // Moderators only!
-    if (req.access_level < 99) {
+    if (req.access_level < CigarDB.MODERATOR) {
         var err = new restify.NotAuthorizedError("You are not authorized!");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: denyCigarCreation: ' + err.message);
         return next(err);
@@ -708,7 +713,7 @@ CigarDB.getCigarsUpdateRequests = function (req, res, next) {
         return_obj = {};
 
     // Moderators only!
-    if (req.access_level < 99) {
+    if (req.access_level < CigarDB.MODERATOR) {
         var err = new restify.NotAuthorizedError("You are not authorized!");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getCigarsUpdateRequests: ' + err.message);
         return next(err);
@@ -775,7 +780,7 @@ CigarDB.approveCigarUpdate = function (req, res, next) {
     }
 
     // Moderators only!
-    if (req.access_level < 99) {
+    if (req.access_level < CigarDB.MODERATOR) {
         var err = new restify.NotAuthorizedError("You are not authorized!");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: approveCigarUpdate: ' + err.message);
         return next(err);
@@ -819,7 +824,7 @@ CigarDB.denyCigarUpdate = function (req, res, next) {
         };
 
     // Moderators only!
-    if (req.access_level < 99) {
+    if (req.access_level < CigarDB.MODERATOR) {
         var err = new restify.NotAuthorizedError("You are not authorized!");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: denyCigarUpdate: ' + err.message);
         return next(err);
@@ -854,7 +859,7 @@ CigarDB.getCigarsDeleteRequests = function (req, res, next) {
         return_obj = {};
 
     // Moderators only!
-    if (req.access_level < 99) {
+    if (req.access_level < CigarDB.MODERATOR) {
         var err = new restify.NotAuthorizedError("You are not authorized!");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getCigarsDeleteRequests: ' + err.message);
         return next(err);
@@ -914,7 +919,7 @@ CigarDB.approveCigarDelete = function (req, res, next) {
         mod_changes = {status: CigarDB.DELETED};
 
     // Moderators only!
-    if (req.access_level < 99) {
+    if (req.access_level < CigarDB.MODERATOR) {
         var err = new restify.NotAuthorizedError("You are not authorized!");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: approveCigarDelete: ' + err.message);
         return next(err);
@@ -956,7 +961,7 @@ CigarDB.denyCigarDelete = function (req, res, next) {
         };
 
     // Moderators only!
-    if (req.access_level < 99) {
+    if (req.access_level < CigarDB.MODERATOR) {
         var err = new restify.NotAuthorizedError("You are not authorized!");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: denyCigarDelete: ' + err.message);
         return next(err);
@@ -991,7 +996,7 @@ CigarDB.getBrandsCreateRequests = function (req, res, next) {
         return_obj = {};
 
     // Moderators only!
-    if (req.access_level < 99) {
+    if (req.access_level < CigarDB.MODERATOR) {
         var err = new restify.NotAuthorizedError("You are not authorized!");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getBrandsCreateRequests: ' + err.message);
         return next(err);
@@ -1058,7 +1063,7 @@ CigarDB.approveBrandCreation = function (req, res, next) {
     }
 
     // Moderators only!
-    if (req.access_level < 99) {
+    if (req.access_level < CigarDB.MODERATOR) {
         var err = new restify.NotAuthorizedError("You are not authorized!");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: approveBrandCreation: ' + err.message);
         return next(err);
@@ -1094,7 +1099,7 @@ CigarDB.denyBrandCreation = function (req, res, next) {
         };
 
     // Moderators only!
-    if (req.access_level < 99) {
+    if (req.access_level < CigarDB.MODERATOR) {
         var err = new restify.NotAuthorizedError("You are not authorized!");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: denyBrandCreation: ' + err.message);
         return next(err);
@@ -1137,7 +1142,7 @@ CigarDB.getBrandsUpdateRequests = function (req, res, next) {
         return_obj = {};
 
     // Moderators only!
-    if (req.access_level < 99) {
+    if (req.access_level < CigarDB.MODERATOR) {
         var err = new restify.NotAuthorizedError("You are not authorized!");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getBrandsUpdateRequests: ' + err.message);
         return next(err);
@@ -1203,7 +1208,7 @@ CigarDB.approveBrandUpdate = function (req, res, next) {
     }
 
     // Moderators only!
-    if (req.access_level < 99) {
+    if (req.access_level < CigarDB.MODERATOR) {
         var err = new restify.NotAuthorizedError("You are not authorized!");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: approveBrandUpdate: ' + err.message);
         return next(err);
@@ -1245,7 +1250,7 @@ CigarDB.denyBrandUpdate = function (req, res, next) {
         };
 
     // Moderators only!
-    if (req.access_level < 99) {
+    if (req.access_level < CigarDB.MODERATOR) {
         var err = new restify.NotAuthorizedError("You are not authorized!");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: denyBrandUpdate: ' + err.message);
         return next(err);
@@ -1280,7 +1285,7 @@ CigarDB.getBrandsDeleteRequests = function (req, res, next) {
         return_obj = {};
 
     // Moderators only!
-    if (req.access_level < 99) {
+    if (req.access_level < CigarDB.MODERATOR) {
         var err = new restify.NotAuthorizedError("You are not authorized!");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getBrandsDeleteRequests: ' + err.message);
         return next(err);
@@ -1345,7 +1350,7 @@ CigarDB.approveBrandDelete = function (req, res, next) {
         };
 
     // Moderators only!
-    if (req.access_level < 99) {
+    if (req.access_level < CigarDB.MODERATOR) {
         var err = new restify.NotAuthorizedError("You are not authorized!");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: approveBrandDelete: ' + err.message);
         return next(err);
@@ -1387,7 +1392,7 @@ CigarDB.denyBrandDelete = function (req, res, next) {
         };
 
     // Moderators only!
-    if (req.access_level < 99) {
+    if (req.access_level < CigarDB.MODERATOR) {
         var err = new restify.NotAuthorizedError("You are not authorized!");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: denyBrandDelete: ' + err.message);
         return next(err);
@@ -1449,33 +1454,45 @@ CigarDB.server.use(function (req, res, next) {
         list_fields = ['wrappers', 'binders', 'fillers'],
         system_fields = ['api_key'],
         mongo_fields = ['__v', '_id'],
-        attribute_domains = {};
+        time_since_last_accessed = 0,
+        app_update_obj = {};
 
     if (!theKey) {
         return next(new restify.MissingParameterError("API key missing."));
     }
 
-    // Start promise chain.
-    AttributeDomain.find().lean().exec()
-        .then(
-        function (attrdomains) {
-            for (param in attrdomains[0]) {
-                if (mongo_fields.indexOf(param) == -1) {
-                    attribute_domains[param] = attrdomains[0][param];
-                }
-            }
-            return App.findOne({api_key: theKey}, 'api_key access_level').exec(); // Returns a promise
-        }).then(
+    App.findOne({api_key: theKey}, 'api_key access_level last_used access_count').exec().then(
         function (apikey) {
             if (!apikey) {
                 throw new Error("API key not found!");
+            }
+            time_since_last_accessed = (Date.now() - apikey.last_used) / 1000 / 60 / 60; // in hours
+            if (time_since_last_accessed > CigarDB.DEV_DAILY_LIMIT_HOURS) {
+                app_update_obj = {
+                    last_used: Date.now(),
+                    access_count: 1
+                }
+            } else {
+                app_update_obj = {
+                    access_count: ++apikey.access_count
+                }
+            }
+            return App.findOneAndUpdate({api_key: theKey}, app_update_obj).exec();
+        }
+    ).then(function (apikey) {
+            if (!apikey) {
+                throw new Error("API key update failed!");
+            } else if (apikey.access_level < CigarDB.PREMIUM) {
+                if (time_since_last_accessed < CigarDB.DEV_DAILY_LIMIT_HOURS && apikey.access_count > CigarDB.DEV_DAILY_LIMIT_REQUESTS) {
+                    throw new Error("You have exceeded the daily limit of requests for this API Key. Please encourage the authors of this app to upgrade their CigarDB API Key.");
+                }
             }
             req.api_key = apikey.api_key;
             req.access_level = apikey.access_level;
             req.cigar_fields = cigar_fields;
             req.list_fields = list_fields;
-            req.attribute_domains = attribute_domains;
             req.system_fields = system_fields;
+            req.mongo_fields = mongo_fields;
             return next();
         }
     ).then(null, function (err) {
