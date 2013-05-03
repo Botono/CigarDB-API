@@ -130,8 +130,7 @@ CigarDB.getBrands = function (req, res, next) {
     if (limit > 0) {
         options_obj.limit = limit;
     }
-    console.log(JSON.stringify(req.api_key));
-    console.log(JSON.stringify(req.access_level));
+
     if (req.params.name) {
         query_obj.name = new RegExp(req.params.name, 'i');
     }
@@ -1416,6 +1415,54 @@ CigarDB.denyBrandDelete = function (req, res, next) {
         });
 };
 
+CigarDB.getBrandToClean = function (req, res, next) {
+    /*
+     Return a single Brand that has not been cleaned
+     */
+    var
+        doc_count = 0,
+        sort_field = 'name',
+        query_obj = {cleaned: false},
+        return_obj = {};
+
+    // Moderators only!
+    if (req.access_level < CigarDB.MODERATOR) {
+        var err = new restify.NotAuthorizedError("You are not authorized!");
+        req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getBrandToClean: ' + err.message);
+        return next(err);
+    }
+
+    Brand.findOne(query_obj).sort(sort_field).lean().exec().then(
+        function (brand) {
+            if (!brand) {
+                throw new restify.ResourceNotFoundError("No records found!");
+            } else {
+                return_obj.numberOfDocuments = doc_count;
+                return_obj.data = {};
+
+                for (field in brand) {
+                    // Remove Mongoose version field and rename MongoDB _id field for return
+                    if (field == '__v') {
+                        continue;
+                    } else if (field == '_id') {
+                        return_obj.id = brand[field];
+                    } else {
+                        return_obj[field] = brand[field];
+                    }
+                }
+
+                res.status(200);
+                res.send(return_obj);
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: getBrandToClean: All clear');
+                return next();
+            }
+        }
+    ).then(null, function (err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getBrandToClean: ' + err.message);
+            return next(err);
+        });
+};
+
 
 CigarDB.log = bunyan.createLogger({
     name: 'cigardb',
@@ -1542,6 +1589,9 @@ CigarDB.server.del('/moderate/brandsUpdateRequests/:id', CigarDB.denyBrandUpdate
 CigarDB.server.get('/moderate/brandsDeleteRequests', CigarDB.getBrandsDeleteRequests);
 CigarDB.server.put('/moderate/brandsDeleteRequests/:id', CigarDB.approveBrandDelete);
 CigarDB.server.del('/moderate/brandsDeleteRequests/:id', CigarDB.denyBrandDelete);
+
+// Route for data cleanup
+CigarDB.server.get('/cleanup/getBrandToClean', CigarDB.getBrandToClean);
 
 CigarDB.server.on('uncaughtException', function (req, res, route, err) {
     req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: Uncaught Exception: ' + err.message);
