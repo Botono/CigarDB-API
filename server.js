@@ -178,7 +178,7 @@ CigarDB.getBrand = function (req, res, next) {
     // Return a single Brand
 
     var
-        limit_fields = 'name location founding_date website status updated',
+        limit_fields = 'name location established website status updated',
         return_obj = {data: {}};
 
     if (!req.params.id) {
@@ -228,7 +228,7 @@ CigarDB.createBrand = function (req, res, next) {
     var name = req.params.name,
         status = CigarDB.CREATE_PENDING,
         location = req.params.location || '',
-        founding_date = req.params.founding_date || '',// TODO find out why founding_date is coming up null
+        established = req.params.established || 0,
         brand = new Brand();
 
     if (req.access_level == CigarDB.MODERATOR) {
@@ -238,7 +238,7 @@ CigarDB.createBrand = function (req, res, next) {
     brand.name = name;
     brand.status = status;
     brand.location = location;
-    brand.founding_date = founding_date;
+    brand.established = established;
     brand.save(function (err, brand) {
         if (err) {
             req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: createBrand: Save failed');

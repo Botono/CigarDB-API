@@ -7,14 +7,15 @@ var
 var BrandSchema = new Schema({
     name: {type: String, required: true},
     country: {type: String, validate: validators.countryValidator},
-    founding_date: { type: Date },
+    established: {type: Number, default: 0}, // TODO add validator for established
     logo: String, // Amazon S3?
     address: String,
     location: {lat: Number, lng: Number },
     website: {type: String, validate: validators.URLValidator},
     status: String,
     moderator_notes: String,
-    updated: {type: Date, default: Date.now}
+    updated: {type: Date, default: Date.now},
+    cleaned: {type: Boolean, default: false}
 });
 BrandSchema.index({location: "2d"});
 BrandSchema.index({name: 1});
