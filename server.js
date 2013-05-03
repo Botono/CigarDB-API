@@ -1437,7 +1437,6 @@ CigarDB.getBrandToClean = function (req, res, next) {
             if (!brand) {
                 throw new restify.ResourceNotFoundError("No records found!");
             } else {
-                return_obj.numberOfDocuments = doc_count;
                 return_obj.data = {};
 
                 for (field in brand) {
@@ -1445,9 +1444,9 @@ CigarDB.getBrandToClean = function (req, res, next) {
                     if (field == '__v') {
                         continue;
                     } else if (field == '_id') {
-                        return_obj.id = brand[field];
+                        return_obj.data.id = brand[field];
                     } else {
-                        return_obj[field] = brand[field];
+                        return_obj.data[field] = brand[field];
                     }
                 }
 
