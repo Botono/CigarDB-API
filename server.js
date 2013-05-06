@@ -1462,6 +1462,32 @@ CigarDB.getBrandToClean = function (req, res, next) {
         });
 };
 
+CigarDB.getDomainValues = function (req, res, next) {
+    // Return cigar domain values
+
+    var attribute_domains = {data: {}};
+
+    AttributeDomain.find().lean().exec()
+    .then(
+        function (attrdomains) {
+            for (param in attrdomains[0]) {
+                if (req.mongo_fields.indexOf(param) == -1) {
+                    attribute_domains.data[param] = attrdomains[0][param];
+                }
+            }
+            res.status(200);
+            res.send(attribute_domains);
+            req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: getDomainValues: All clear');
+            return next();
+        }
+    ).then(null, function(err) {
+            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getDomainValues: ' + err.message);
+            return next(err);
+        }
+    );
+
+};
+
 
 CigarDB.log = bunyan.createLogger({
     name: 'cigardb',
@@ -1561,6 +1587,8 @@ CigarDB.server.get('/cigars/:id', CigarDB.getCigar);
 CigarDB.server.post('/cigars', CigarDB.createCigar);
 CigarDB.server.put('/cigars/:id', CigarDB.updateCigar);
 CigarDB.server.del('/cigars/:id', CigarDB.removeCigar);
+
+CigarDB.server.get('/cigarDomainValues', CigarDB.getDomainValues);
 
 // Moderator routes
 // Cigars - Create Requests
