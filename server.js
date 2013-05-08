@@ -3,6 +3,7 @@ var
     url = require('url'),
     mongoose = require('mongoose'),
     bunyan = require('bunyan'),
+    util = require('util'),
     Schema = mongoose.Schema,
     config = require('./config.js'),
     db = mongoose.connect(config.creds.mongoose_auth),
@@ -492,32 +493,59 @@ CigarDB.createCigar = function (req, res, next) {
 
 CigarDB.updateCigar = function (req, res, next) {
 
+    var
+        cigar_updates = {};
+
     if (!req.params.id) {
         var err = new restify.MissingParameterError("You must supply an ID.");
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: updateCigar: ID parameter not provided');
         return next(err);
     }
 
-    var update_req = new UpdateRequest();
-
-    update_req.type = 'cigar';
-    update_req.target_id = req.params.id;
-    update_req.api_key = req.api_key;
-    update_req.data = req.params;
-    update_req.status = CigarDB.PENDING;
-
-    update_req.save(function (err, update_req) {
-        if (err) {
-            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: updateCigar: Save failed');
-            return next(err);
-        } else {
-            res.status(202);
-            var data = {"message": "The update has been submitted and is awaiting approval."};
-            res.send(data);
-            req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: updateCigar: All clear');
-            return next();
+    if (req.api_key === CigarDB.MODERATOR) {
+        for (param in req.params) {
+            if (req.list_fields.indexOf(param) != -1 && !util.isArray(req.params[param])) {
+                req.params[param] = CigarDB.cleanEmptyList(req.params[param].split(','));
+            }
+            cigar_updates[param] = req.params[param];
         }
-    })
+        Cigar.findByIdAndUpdate(req.params.id, cigar_updates).exec().then(function (updated_cigar) {
+            if (!updated_cigar) {
+                throw new Error('Cigar update failed.');
+            } else {
+                res.status(200);
+                var data = {"message": "The update has been processed."};
+                res.send(data);
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: updateCigar MODERATOR: All clear');
+                return next();
+            }
+        }).then(null, function (err) {
+                req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: updateCigar MODERATOR: ' + err.message);
+                return next(err);
+            });
+    } else {
+        var update_req = new UpdateRequest();
+
+        update_req.type = 'cigar';
+        update_req.target_id = req.params.id;
+        update_req.api_key = req.api_key;
+        update_req.data = req.params;
+        update_req.status = CigarDB.PENDING;
+
+        update_req.save(function (err, update_req) {
+            if (err) {
+                req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: updateCigar: Save failed');
+                return next(err);
+            } else {
+                res.status(202);
+                var data = {"message": "The update has been submitted and is awaiting approval."};
+                res.send(data);
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: updateCigar: All clear');
+                return next();
+            }
+        })
+    }
+
 };
 
 CigarDB.removeCigar = function (req, res, next) {
@@ -1468,7 +1496,7 @@ CigarDB.getDomainValues = function (req, res, next) {
     var attribute_domains = {data: {}};
 
     AttributeDomain.find().lean().exec()
-    .then(
+        .then(
         function (attrdomains) {
             for (param in attrdomains[0]) {
                 if (req.mongo_fields.indexOf(param) == -1) {
@@ -1480,7 +1508,7 @@ CigarDB.getDomainValues = function (req, res, next) {
             req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: getDomainValues: All clear');
             return next();
         }
-    ).then(null, function(err) {
+    ).then(null, function (err) {
             req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: getDomainValues: ' + err.message);
             return next(err);
         }
