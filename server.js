@@ -261,24 +261,49 @@ CigarDB.updateBrand = function (req, res, next) {
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: updateBrand: ID parameter not provided');
         return next(err);
     }
-    var update_req = new UpdateRequest();
-    update_req.type = 'brand';
-    update_req.api_key = req.api_key;
-    update_req.data = req.params;
-    update_req.status = CigarDB.PENDING;
 
-    update_req.save(function (err, update_req) {
-        if (err) {
-            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: updateBrand: Save failed');
-            return next(err);
-        } else {
-            res.status(202);
-            var data = {"message": "The update has been submitted and is awaiting approval."};
-            res.send(data);
-            req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: updateBrand: All clear');
-            return next();
+    var
+        brand_updates = {};
+
+    if (req.access_level === CigarDB.MODERATOR) {
+        for (param in req.params) {
+            brand_updates[param] = req.params[param];
         }
-    })
+        brand_updates.updated = Date.now();
+        Brand.findByIdAndUpdate(req.params.id, brand_updates).exec().then(function (updated_brand) {
+            if (!updated_brand) {
+                throw new Error('Brand update failed.');
+            } else {
+                res.status(200);
+                var data = {"message": "The update has been processed."};
+                res.send(data);
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: updateBrand MODERATOR: All clear');
+                return next();
+            }
+        }).then(null, function (err) {
+                req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: updateBrand MODERATOR: ' + err.message);
+                return next(err);
+            });
+    } else {
+        var update_req = new UpdateRequest();
+        update_req.type = 'brand';
+        update_req.api_key = req.api_key;
+        update_req.data = req.params;
+        update_req.status = CigarDB.PENDING;
+
+        update_req.save(function (err, update_req) {
+            if (err) {
+                req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: updateBrand: Save failed');
+                return next(err);
+            } else {
+                res.status(202);
+                var data = {"message": "The update has been submitted and is awaiting approval."};
+                res.send(data);
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: updateBrand: All clear');
+                return next();
+            }
+        })
+    }
 };
 
 CigarDB.removeBrand = function (req, res, next) {
@@ -287,7 +312,7 @@ CigarDB.removeBrand = function (req, res, next) {
 
     if (!req.params.id) {
         err = new restify.MissingParameterError('You must supply an ID.');
-    } else if (!req.params.reason) {
+    } else if (!req.params.reason && req.access_level < CigarDB.MODERATOR) {
         err = new restify.MissingParameterError('You must provide a reason.');
     }
     if (err) {
@@ -295,25 +320,45 @@ CigarDB.removeBrand = function (req, res, next) {
         return next(err);
     }
 
-    var delete_req = new DeleteRequest();
-    delete_req.target_id = req.params.id;
-    delete_req.reason = req.params.reason;
-    delete_req.type = 'brand';
-    delete_req.api_key = req.api_key;
-    delete_req.status = CigarDB.PENDING;
+    if (req.access_level == CigarDB.MODERATOR) {
+        reason = req.params.reason || '';
+        Brand.findByIdAndUpdate(req.params.id, {status: CigarDB.DELETED, reason: reason}).exec().then(function (removed_brand) {
+            if (!removed_brand) {
+                throw new Error('Brand update failed.');
+            } else {
+                res.status(200);
+                data = {"message": "The brand was marked as deleted."};
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: removeBrand MODERATOR: All clear');
+                return next();
+            }
+        }).then(null, function (err) {
+                req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: removeBrand MODERATOR: ' + err.message);
+                return next(err);
+            }
+        );
+    } else {
+        var delete_req = new DeleteRequest();
+        delete_req.target_id = req.params.id;
+        delete_req.reason = req.params.reason;
+        delete_req.type = 'brand';
+        delete_req.api_key = req.api_key;
+        delete_req.status = CigarDB.PENDING;
 
-    delete_req.save(function (err, delete_req) {
-        if (err) {
-            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: removeBrand: Save failed');
-            return next(err);
-        } else {
-            res.status(202);
-            var data = {"message": "The delete request has been submitted and is awaiting approval."};
-            res.send(data);
-            req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: removeBrand: All clear');
-            return next();
-        }
-    });
+        delete_req.save(function (err, delete_req) {
+            if (err) {
+                req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: removeBrand: Save failed');
+                return next(err);
+            } else {
+                res.status(202);
+                var data = {"message": "The delete request has been submitted and is awaiting approval."};
+                res.send(data);
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: removeBrand: All clear');
+                return next();
+            }
+        });
+    }
+
+
 };
 
 CigarDB.getCigars = function (req, res, next) {
@@ -551,11 +596,14 @@ CigarDB.updateCigar = function (req, res, next) {
 
 CigarDB.removeCigar = function (req, res, next) {
 
-    var err;
+    var
+        err,
+        reason,
+        data = {};
 
     if (!req.params.id) {
         err = new restify.MissingParameterError('You must supply an ID.');
-    } else if (!req.params.reason) {
+    } else if (!req.params.reason && req.access_level < CigarDB.MODERATOR) {
         err = new restify.MissingParameterError('You must provide a reason.');
     }
     if (err) {
@@ -563,26 +611,46 @@ CigarDB.removeCigar = function (req, res, next) {
         return next(err);
     }
 
-    var delete_req = new DeleteRequest();
+    if (req.access_level == CigarDB.MODERATOR) {
+        reason = req.params.reason || '';
+        Cigar.findByIdAndUpdate(req.params.id, {status: CigarDB.DELETED, reason: reason}).exec().then(function (removed_cigar) {
+            if (!removed_cigar) {
+                throw new Error('Cigar update failed.');
+            } else {
+                res.status(200);
+                data = {"message": "The cigar was marked as deleted."};
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: removeCigar MODERATOR: All clear');
+                return next();
+            }
+        }).then(null, function (err) {
+                req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: removeCigar MODERATOR: ' + err.message);
+                return next(err);
+            }
+        );
+    } else {
+        var delete_req = new DeleteRequest();
 
-    delete_req.target_id = req.params.id;
-    delete_req.reason = req.params.reason;
-    delete_req.api_key = req.api_key;
-    delete_req.type = 'cigar';
-    delete_req.status = CigarDB.PENDING;
+        delete_req.target_id = req.params.id;
+        delete_req.reason = req.params.reason;
+        delete_req.api_key = req.api_key;
+        delete_req.type = 'cigar';
+        delete_req.status = CigarDB.PENDING;
 
-    delete_req.save(function (err, delete_req) {
-        if (err) {
-            req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: removeCigar: Save failed');
-            return next(err);
-        } else {
-            res.status(202);
-            var data = {"message": "The delete request has been submitted and is awaiting approval."};
-            res.send(data);
-            req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: removeCigar: All clear');
-            return next();
-        }
-    });
+        delete_req.save(function (err, delete_req) {
+            if (err) {
+                req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: removeCigar: Save failed');
+                return next(err);
+            } else {
+                res.status(202);
+                data = {"message": "The delete request has been submitted and is awaiting approval."};
+                res.send(data);
+                req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: removeCigar: All clear');
+                return next();
+            }
+        });
+    }
+
+
 };
 
 CigarDB.getCigarsCreateRequests = function (req, res, next) {
@@ -1542,8 +1610,8 @@ CigarDB.server.use(restify.queryParser());
 CigarDB.server.use(restify.bodyParser());
 CigarDB.server.use(restify.gzipResponse());
 CigarDB.server.use(restify.throttle({
-    burst: 50,
-    rate: 25,
+    burst: 25,
+    rate: 15,
     ip: true
 }));
 
