@@ -502,13 +502,14 @@ CigarDB.updateCigar = function (req, res, next) {
         return next(err);
     }
 
-    if (req.api_key === CigarDB.MODERATOR) {
+    if (req.access_level === CigarDB.MODERATOR) {
         for (param in req.params) {
             if (req.list_fields.indexOf(param) != -1 && !util.isArray(req.params[param])) {
                 req.params[param] = CigarDB.cleanEmptyList(req.params[param].split(','));
             }
             cigar_updates[param] = req.params[param];
         }
+        cigar_updates.updated = Date.now();
         Cigar.findByIdAndUpdate(req.params.id, cigar_updates).exec().then(function (updated_cigar) {
             if (!updated_cigar) {
                 throw new Error('Cigar update failed.');
