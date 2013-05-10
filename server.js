@@ -224,7 +224,7 @@ CigarDB.createBrand = function (req, res, next) {
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: createBrand: Name parameter not provided');
         return next(err);
     }
-    console.log('Creating a new brand');
+    ('Creating a new brand');
     // Let's fill in the values manually
     var name = req.params.name,
         status = CigarDB.CREATE_PENDING,
@@ -493,7 +493,7 @@ CigarDB.createCigar = function (req, res, next) {
 
     for (param in req.params) {
 
-        if (req.list_fields.indexOf(param) != -1) {
+        if (req.list_fields.indexOf(param) != -1 && !util.isArray(req.params[param])) {
             req.params[param] = CigarDB.cleanEmptyList(req.params[param].split(','));
         }
         cigar[param] = req.params[param];
@@ -610,7 +610,7 @@ CigarDB.removeCigar = function (req, res, next) {
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: removeCigar: Required parameter not provided');
         return next(err);
     }
-
+    console.log('REMOVE CIGAR: ' + req.params.id);
     if (req.access_level == CigarDB.MODERATOR) {
         reason = req.params.reason || '';
         Cigar.findByIdAndUpdate(req.params.id, {status: CigarDB.DELETED, reason: reason}).exec().then(function (removed_cigar) {
@@ -619,6 +619,7 @@ CigarDB.removeCigar = function (req, res, next) {
             } else {
                 res.status(200);
                 data = {"message": "The cigar was marked as deleted."};
+                res.send(data);
                 req.log.info(CigarDB.buildCustomLogFields(req), 'SUCCESS: removeCigar MODERATOR: All clear');
                 return next();
             }
