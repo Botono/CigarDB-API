@@ -31,6 +31,9 @@ CigarDB.DEV_DAILY_LIMIT_HOURS = 24;
 CigarDB.MODERATOR = 99;
 CigarDB.PREMIUM = 10;
 CigarDB.DEVELOPER = 0;
+CigarDB.CLEANED_STATUS_DIRTY = 'dirty';
+CigarDB.CLEANED_STATUS_PROCESSING = 'processing';
+CigarDB.CLEANED_STATUS_CLEANED = 'cleaned';
 
 CigarDB.cleanEmptyList = function (val) {
     // Feeling kind of anal about these list values.
@@ -254,7 +257,6 @@ CigarDB.createBrand = function (req, res, next) {
     });
 };
 
-// TODO fine tune update process. Scrub incoming values
 CigarDB.updateBrand = function (req, res, next) {
     if (!req.params.id) {
         var err = new restify.MissingParameterError('You must supply an ID.');
@@ -610,10 +612,10 @@ CigarDB.removeCigar = function (req, res, next) {
         req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: removeCigar: Required parameter not provided');
         return next(err);
     }
-    console.log('REMOVE CIGAR: ' + req.params.id);
+
     if (req.access_level == CigarDB.MODERATOR) {
         reason = req.params.reason || '';
-        Cigar.findByIdAndUpdate(req.params.id, {status: CigarDB.DELETED, reason: reason}).exec().then(function (removed_cigar) {
+        Cigar.findByIdAndUpdate(req.params.id, {status: CigarDB.DELETED, moderator_notes: reason}).exec().then(function (removed_cigar) {
             if (!removed_cigar) {
                 throw new Error('Cigar update failed.');
             } else {
@@ -1520,7 +1522,7 @@ CigarDB.getBrandToClean = function (req, res, next) {
     var
         doc_count = 0,
         sort_field = 'name',
-        query_obj = {cleaned: false},
+        query_obj = {cleaned: CigarDB.CLEANED_STATUS_DIRTY},
         return_obj = {};
 
     // Moderators only!
@@ -1530,7 +1532,7 @@ CigarDB.getBrandToClean = function (req, res, next) {
         return next(err);
     }
 
-    Brand.findOne(query_obj).sort(sort_field).lean().exec().then(
+    Brand.findOneAndUpdate(query_obj, {cleaned: CigarDB.CLEANED_STATUS_PROCESSING}).sort(sort_field).lean().exec().then(
         function (brand) {
             if (!brand) {
                 throw new restify.ResourceNotFoundError("No records found!");
@@ -1716,7 +1718,7 @@ CigarDB.server.put('/moderate/brandsDeleteRequests/:id', CigarDB.approveBrandDel
 CigarDB.server.del('/moderate/brandsDeleteRequests/:id', CigarDB.denyBrandDelete);
 
 // Route for data cleanup
-CigarDB.server.get('/cleanup/getBrandToClean', CigarDB.getBrandToClean);
+CigarDB.server.get('/cleanup/brandToClean', CigarDB.getBrandToClean);
 
 CigarDB.server.on('uncaughtException', function (req, res, route, err) {
     req.log.info(CigarDB.buildCustomLogFields(req, err), 'ERROR: Uncaught Exception: ' + err.message);

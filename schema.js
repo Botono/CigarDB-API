@@ -15,7 +15,7 @@ var BrandSchema = new Schema({
     status: String,
     moderator_notes: String,
     updated: {type: Date, default: Date.now},
-    cleaned: {type: Boolean, default: false}
+    cleaned: {type: String, default: 'dirty'}
 });
 BrandSchema.index({location: "2d"});
 BrandSchema.index({name: 1});
